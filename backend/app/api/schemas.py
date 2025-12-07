@@ -11,9 +11,8 @@ class MemoryDTO(BaseModel):
     Data Transfer Object. 
     Safe to pass around anywhere (Graph, API, Unity).
     """
-    id: int
-    day: int
-    time: int
+    in_game_day: int  
+    time_slot: int    
     mode: str          # "reality" or "dream"
     location: str
     content: str
