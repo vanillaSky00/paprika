@@ -1,0 +1,15 @@
+service:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: paprika_db
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: paprika_ai
+    ports:
+      - "5432:5432"
+    volumnes:
+      - postgres_data:/var/lib/postgresql/data
+      
+volumes:
+  postgres_data:
