@@ -5,9 +5,9 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 
 # Import your actual code
-from paprika_agent_backend.memory.models import Base, Memory
-from paprika_agent_backend.memory.pgvector_repo import PostgresMemoryStore
-from paprika_agent_backend.api.schemas import CreateMemoryDTO, MemoryDTO
+from app.memory.models import Base, Memory
+from app.memory.pgvector_repo import PostgresMemoryStore
+from app.api.schemas import CreateMemoryDTO, MemoryDTO
 
 # Use the same DB URL from your .env or Docker
 TEST_DATABASE_URL = "postgresql+asyncpg://admin:password@localhost:5432/paprika_ai"
