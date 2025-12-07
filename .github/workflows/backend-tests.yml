@@ -57,6 +57,8 @@ jobs:
       - name: Run Tests
         # We define the DB connection string as an Env Var here
         env:
+          PYTHONPATH: .
+          
           # Note: Host is 'localhost' because we mapped ports in services
           DATABASE_URL: postgresql+asyncpg://admin:password@localhost:5432/paprika_ai
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }} # Add this to GitHub Secrets later
