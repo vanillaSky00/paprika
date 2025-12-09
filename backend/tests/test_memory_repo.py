@@ -1,8 +1,10 @@
 import pytest
 import pytest_asyncio
-from unittest.mock import patch  # <--- NEW IMPORT
+# patch lets you temporarily replace a function or object during tests.
+from unittest.mock import patch  
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
+# text() lets you execute raw SQL (e.g., CREATE EXTENSION vector).
 from sqlalchemy import text
 
 from app.memory.models import Base
@@ -11,7 +13,6 @@ from app.api.schemas import CreateMemoryDTO
 
 TEST_DATABASE_URL = "postgresql+asyncpg://admin:password@localhost:5432/paprika_ai"
 
-# --- FIXTURES (Unchanged) ---
 @pytest_asyncio.fixture
 async def db_session():
     engine = create_async_engine(TEST_DATABASE_URL, echo=False)
@@ -33,8 +34,6 @@ def memory_store(db_session):
     async def mock_factory():
         yield db_session
     return PostgresMemoryStore(mock_factory)
-
-# --- UPDATED TESTS WITH MOCKING ---
 
 @pytest.mark.asyncio
 async def test_save_and_fetch_recent(memory_store):
