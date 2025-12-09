@@ -1,9 +1,20 @@
+from functools import lru_cache
+from typing import List
 from langchain_openai import OpenAIEmbeddings
-# OR use sentence-transformers for local dev
 
-# Setup standard OpenAI Embeddings
-# Ensure OPENAI_API_KEY is in your environment variables
-_embedder = OpenAIEmbeddings(model="text-embedding-3-small")
+@lru_cache
+def get_embedder() -> OpenAIEmbeddings:
+    """
+    Lazy create the embedder on first real use
+    This will only hit OpenAI / check API key when actually called.
+    """
+    return OpenAIEmbeddings(model="text-embedding-3-small")
 
-def embed_text(text: str) -> list[float]:
-    return _embedder.embed_query(text)
+
+def embed_text(text: str) -> List[float]:
+    """
+    Thin wrapper used by the repo layer.
+    Tests will patch this function, so they never need a real embedder.
+    """
+    embedder = get_embedder()
+    return embedder.embed_query(text)
