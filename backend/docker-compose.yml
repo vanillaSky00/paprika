@@ -1,4 +1,4 @@
-service:
+services:
   db:
     image: pgvector/pgvector:pg16
     container_name: paprika_db
@@ -8,7 +8,7 @@ service:
       POSTGRES_DB: paprika_ai
     ports:
       - "5432:5432"
-    volumnes:
+    volumes:
       - postgres_data:/var/lib/postgresql/data
       
 volumes:
