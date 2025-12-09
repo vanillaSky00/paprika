@@ -1,27 +1,39 @@
+from typing import Optional
 from functools import lru_cache
 from .config import settings
 from .llm.base import BaseLLMClient
 from .llm.openai_client import OpenAIClient
 from .llm.ollama_client import OllamaClient # for future switch
 
+def _build_llm(provider: str, model: str) -> BaseLLMClient:
+    if provider == "openai":
+        if not settings.OPENAI_API_KEY:
+            raise RuntimeError("OPENAI_API_KEY missing in .env!")
+        return OpenAIClient(
+            model=model,
+            api_key=settings.OPENAI_API_KEY
+            )
+        
+    if provider == "ollama":
+        return OllamaClient(
+            model=model,
+            base_url=settings.OLLAMA_BASE_URL
+        )
+    
+    raise ValueError(f"Unknown provider: {provider}")
+
 @lru_cache
-def get_llem_client() -> BaseLLMClient:
+def get_llm(
+        provider: Optional[str] = None,
+        model: Optional[str] = None,
+    ) -> BaseLLMClient:
     """
     Factory that returns the configured LLM.
     Uses lru_cache to maintain Singleton
     """
-    if settings.LLM_PROVIDER == "openai":
-        if not settings.OPENAI_API_KEY:
-            raise RuntimeError("OPENAI_API_KEY missing in .env!")
-        return OpenAIClient(
-            model=settings.LLM_MODEL,
-            api_key=settings.OPENAI_API_KEY
-            )
-        
-    if settings.LLM_PROVIDER == "ollama":
-            return OllamaClient(
-                model=settings.LLM_MODEL,
-                base_url=settings.OLLAMA_BASE_URL
-            )
+    effective_provider = provider or settings.LLM_PROVIDER
+    effective_model    = model or settings.LLM_MODEL
+    return _build_llm(effective_provider, effective_model)
     
-    raise ValueError(f"Unknown LLM_PROVIDER: {settings.LLM_PROVIDER}")
+def get_default_llm() -> BaseLLMClient:
+    return get_llm()
