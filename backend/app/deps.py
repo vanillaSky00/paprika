@@ -3,7 +3,7 @@ from functools import lru_cache
 from .config import settings
 from .llm.base import BaseLLMClient
 from .llm.openai_client import OpenAIClient
-from .llm.ollama_client import OllamaClient # for future switch
+from .llm.ollama_client import OllamaClient 
 
 def _build_llm(provider: str, model: str) -> BaseLLMClient:
     if provider == "openai":
@@ -12,7 +12,7 @@ def _build_llm(provider: str, model: str) -> BaseLLMClient:
         return OpenAIClient(
             model=model,
             api_key=settings.OPENAI_API_KEY
-            )
+        )
         
     if provider == "ollama":
         return OllamaClient(
