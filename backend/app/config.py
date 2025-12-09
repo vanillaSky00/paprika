@@ -1,4 +1,4 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     LLM_PROVIDER: str = "openai"
@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str | None = None
     OLLAMA_BASE_URL: str = "http://localhost:11434"
     
-    class Config:
-        env_file = ".env" # tell Pydantic where to load env variables from
+
+    model_config = SettingsConfigDict(env_file=".env") # tell Pydantic where to load env variables from
         
 settings = Settings()
