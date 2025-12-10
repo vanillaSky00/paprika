@@ -714,4 +714,6 @@ $RECYCLE.BIN/
 # Windows shortcuts
 *.lnk
 
+# API key
+.env
 # End of https://www.toptal.com/developers/gitignore/api/unity,python,csharp,windows,macos,linux,visualstudiocode

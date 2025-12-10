@@ -1,12 +1,12 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
-    LLM_PROVIDER: str = "openai"
-    LLM_MODEL: str = "gpt-4.1-mini"
+    LLM_PROVIDER: str = "ollama"
+    LLM_MODEL: str = "gemma3:1b"
     
     # API keys and connection urls
-    OPENAI_API_KEY: str | None = None
-    OLLAMA_BASE_URL: str = "http://localhost:11434"
+    API_KEY: str | None = None
+    OLLAMA_BASE_URL: str
     
 
     model_config = SettingsConfigDict(env_file=".env") # tell Pydantic where to load env variables from
