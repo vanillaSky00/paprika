@@ -43,7 +43,7 @@ async def test_save_and_fetch_recent(memory_store):
         mock_embed.return_value = [0.1] * 1536 
 
         new_mem = CreateMemoryDTO(
-            day=1, time=8, mode="reality", location="bedroom", memory_type="observation",
+            day=1, time=8, mode="reality", location_id="bedroom", memory_type="observation",
             content="I woke up feeling cold.", emotion_tags=["cold", "neutral"], importance=0.3
         )
         await memory_store.save(new_mem)
@@ -59,11 +59,11 @@ async def test_vector_search(memory_store):
         mock_embed.return_value = [0.1] * 1536 
         
         mem1 = CreateMemoryDTO(
-            day=1, time=10, mode="reality", location="kitchen", memory_type="obs",
+            day=1, time=10, mode="reality", location_id="kitchen", memory_type="obs",
             content="The coffee smells burnt.", importance=0.1
         )
         mem2 = CreateMemoryDTO(
-            day=1, time=12, mode="dream", location="void", memory_type="dream",
+            day=1, time=12, mode="dream", location_id="void", memory_type="dream",
             content="A giant eye is watching me from the sky.", importance=0.9
         )
         
