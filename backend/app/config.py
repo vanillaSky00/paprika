@@ -9,6 +9,9 @@ class Settings(BaseSettings):
     OLLAMA_BASE_URL: str = "http://localhost:11434"
     
 
-    model_config = SettingsConfigDict(env_file=".env") # tell Pydantic where to load env variables from
+    model_config = SettingsConfigDict(
+        env_file=".env", # tell Pydantic where to load env variables from
+        extra="ignore",
+    ) 
         
 settings = Settings()
