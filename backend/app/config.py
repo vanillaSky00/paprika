@@ -5,7 +5,10 @@ class Settings(BaseSettings):
     LLM_MODEL: str = "gemma3:1b"
     
     # API keys and connection urls
-    API_KEY: str | None = None
+    # openai
+    OPENAI_API_KEY: str | None = None
+    # ollama
+    OLLAMA_API_KEY: str | None = None
     OLLAMA_BASE_URL: str
     
 
