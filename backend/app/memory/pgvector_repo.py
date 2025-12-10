@@ -18,7 +18,7 @@ class PostgresMemoryStore(BaseMemoryStore):
                 in_game_day=memory.day,
                 time_slot=memory.time,
                 mode=memory.mode,
-                location=memory.location_id,
+                location_id=memory.location_id,
                 memory_type=memory.memory_type,
                 content=memory.content,
                 emotion_tags=memory.emotion_tags,

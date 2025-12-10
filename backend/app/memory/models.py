@@ -13,7 +13,7 @@ class Memory(Base):
     # Context
     in_game_day = Column(Integer, index=True)
     time_slot = Column(Integer)
-    location = Column(String)
+    location_id = Column(String)
     mode = Column(String)          # "reality" or "dream"
     memory_type = Column(String)   # "observation", "reflection"
 
