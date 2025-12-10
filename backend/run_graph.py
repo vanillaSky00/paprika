@@ -10,7 +10,7 @@ async def main():
         day=1,
         mode=GameMode.DREAM,
         location_id="bedroom",
-        player_nearby=None,
+        player_nearby=False,
         recent_events=["quiet_humming", "lights_flickering"]
     )
     

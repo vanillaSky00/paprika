@@ -58,7 +58,7 @@ class Perception(BaseModel):
     day: int
     mode: GameMode
     location_id: str
-    player_nearby: bool
+    player_nearby: Optional[bool] = None
     recent_events: List[str] = []
     
     current_mood: Optional[str] = None
