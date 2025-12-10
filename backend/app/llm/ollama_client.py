@@ -12,13 +12,15 @@ class OllamaClient(BaseLLMClient):
         headers = {}
         if api_key:
             headers["Authorization"] = f"Bearer {api_key}"
-            print(f"[DEBUG] Final Headers: {headers}")
+            #print(f"[DEBUG] Final Headers: {headers}")
 
         self.llm = ChatOllama(
             base_url=base_url,
             model=model,
             #temperature=0.7,
-            headers=headers
+            client_kwargs={
+                "headers": headers
+            }
         )
 
     async def generate_response(self, system_prompt: str, user_message: str) -> str:
