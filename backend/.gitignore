@@ -1,4 +1,4 @@
-# Created by https://www.toptal.com/developers/gitignore/api/unity,python,csharp,windows,macos,linux,visualstudiocode
+f# Created by https://www.toptal.com/developers/gitignore/api/unity,python,csharp,windows,macos,linux,visualstudiocode
 # Edit at https://www.toptal.com/developers/gitignore?templates=unity,python,csharp,windows,macos,linux,visualstudiocode
 
 ### Csharp ###
@@ -714,6 +714,4 @@ $RECYCLE.BIN/
 # Windows shortcuts
 *.lnk
 
-# API key
-.env
 # End of https://www.toptal.com/developers/gitignore/api/unity,python,csharp,windows,macos,linux,visualstudiocode
