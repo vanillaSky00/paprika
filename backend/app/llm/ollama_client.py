@@ -25,7 +25,6 @@ class OllamaClient(BaseLLMClient):
             ("system", system_prompt),
             ("human", user_message)
         ]
-        # 使用 ainvoke 非同步呼叫
         response = await self.llm.ainvoke(messages)
         return response.content
 
