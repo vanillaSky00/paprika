@@ -75,7 +75,7 @@ class AgentAction(BaseModel):
     """
     OUTPUT: What Python sends back to Unity
     """
-    action_type = AgentActionType   
+    action_type: AgentActionType
     text: Optional[str] = None
     target_location: Optional[str] = None
     spawn: Optional[SpawnDetails] = None
