@@ -1,0 +1,19 @@
+# Python / env
+__pycache__/
+*.pyc
+.venv/
+.env
+
+# Dev / tooling
+scripts/
+tests/
+.coverage
+htmlcov/
+.mypy_cache/
+.pytest_cache/
+
+# Git / misc
+.git/
+.gitignore
+.vscode/
+.idea/
