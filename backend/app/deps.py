@@ -6,9 +6,9 @@ from .llm.openai_client import OpenAIClient
 from .llm.ollama_client import OllamaClient 
 
 def _build_llm(provider: str, model: str) -> BaseLLMClient:
-    
-        
+      
     if provider == "ollama":
+        print(f"DEBUG: Config API Key is: {settings.OLLAMA_API_KEY}")
         return OllamaClient(
             model=model,
             base_url=settings.OLLAMA_BASE_URL,
