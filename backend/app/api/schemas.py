@@ -80,4 +80,4 @@ class AgentAction(BaseModel):
     target_location: Optional[str] = None
     spawn: Optional[SpawnDetails] = None
     
-    thoguht_trace: Optional[str] = None
+    thought_trace: Optional[str] = None
