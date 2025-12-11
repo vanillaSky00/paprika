@@ -1,0 +1,48 @@
+# =========================================================
+# Unity Project Git LFS Configuration
+# Tracks large binary files using Git Large File Storage (LFS)
+# This prevents the main Git repository from becoming too large and slow.
+# =========================================================
+
+# 1. Unity Core Binary Files (.unity, .prefab, .asset, .mat)
+# These are scene files, prefabs, scriptable objects, and materials.
+# They change frequently and are always binary.
+*.unity filter=lfs diff=lfs merge=lfs -text
+*.prefab filter=lfs diff=lfs merge=lfs -text
+*.asset filter=lfs diff=lfs merge=lfs -text
+*.mat filter=lfs diff=lfs merge=lfs -text
+
+# NOTE on .meta: While often tracked by LFS, the standard practice is to
+# treat them as text for easier merging, but since they can be complex,
+# some teams choose to track them as binary:
+*.meta filter=lfs diff=lfs merge=lfs -text
+
+# 2. 3D Model Files
+# All common 3D model formats used for environment and Agent bodies.
+*.fbx filter=lfs diff=lfs merge=lfs -text
+*.obj filter=lfs diff=lfs merge=lfs -text
+*.max filter=lfs diff=lfs merge=lfs -text
+*.dae filter=lfs diff=lfs merge=lfs -text
+
+# 3. Image and Texture Files
+# Large textures should be stored in LFS for efficiency.
+*.png filter=lfs diff=lfs merge=lfs -text
+*.jpg filter=lfs diff=lfs merge=lfs -text
+*.jpeg filter=lfs diff=lfs merge=lfs -text
+*.tga filter=lfs diff=lfs merge=lfs -text
+*.tif filter=lfs diff=lfs merge=lfs -text
+*.tiff filter=lfs diff=lfs merge=lfs -text
+*.dds filter=lfs diff=lfs merge=lfs -text
+
+# 4. Audio and Video Files
+# Media resources for the game environment.
+*.wav filter=lfs diff=lfs merge=lfs -text
+*.mp3 filter=lfs diff=lfs merge=lfs -text
+*.ogg filter=lfs diff=lfs merge=lfs -text
+*.aiff filter=lfs diff=lfs merge=lfs -text
+*.mov filter=lfs diff=lfs merge=lfs -text
+*.mp4 filter=lfs diff=lfs merge=lfs -text
+
+# 5. ML-Agents Specific Files (Optional but Recommended)
+# If your project will store trained models locally.
+*.nn filter=lfs diff=lfs merge=lfs -text
