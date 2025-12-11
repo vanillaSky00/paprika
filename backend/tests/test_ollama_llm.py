@@ -3,7 +3,6 @@ from pydantic import BaseModel, Field
 from app.deps import get_llm
 from app.config import settings
 
-
 @pytest.mark.asyncio
 @pytest.mark.skipif(
     not settings.OLLAMA_API_KEY,

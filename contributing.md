@@ -78,19 +78,45 @@ git commit -m "feat: short description"
 git push -u origin feature/my-change
 ```
 
-Branch Naming:
+### Branch Naming Conventions
 ```
-feature/
-    chat
-    login
-
-bugfix/
-    crash-on-start
-
-docs/
-    update-readme
+<type>/<short-description>
 ```
 
+```
+feature/   → new features or enhancements
+bugfix/    → fixes for issues or regressions
+hotfix/    → urgent fixes applied directly to production
+refactor/  → code restructuring without behavior changes
+test/      → adding or updating tests
+docs/      → documentation-only updates
+chore/     → CI, scripts, dependency updates
+```
+Example:
+```
+feature/agent-mind-langgraph
+feature/tools-weather-api
+feature/login-endpoint
+
+bugfix/memory-null-location
+bugfix/api-timeout-handling
+
+refactor/llm-client-factory
+refactor/memory-repo-structure
+
+test/tools-weather-mock
+test/llm-openai-client
+
+docs/update-contributing
+docs/add-api-reference
+
+chore/bump-deps
+chore/cleanup-dockerfile
+```
+Rules
+- Use kebab-case for descriptions (`my-new-feature`)
+- Keep names short but meaningful
+- Avoid branch names like `fix`, `temp`
 
 ## Open a Pull Request
 
@@ -104,5 +130,32 @@ On GitHub:
   * How tested?
 * Ensure CI is green
 * Address review comments
-
 A maintainer will merge once approved 🚀
+
+### PR Naming Conventions
+```
+<type>(<scope>): <short summary>
+```
+### Common Scopes
+Use directory names to indicate the affected area:
+```
+agent
+memory
+tools
+llm
+api
+config
+scripts
+docker
+docs
+tests
+core
+```
+Examples
+```
+feat(tools): add WeatherToolBuilder
+feat(config): set default OPENWEATHER_BASE_URL
+feat(llm): add Ollama client support
+refactor(memory): simplify pgvector repo init
+test(tools): mock weather API for unit tests
+```
