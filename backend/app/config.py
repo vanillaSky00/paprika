@@ -8,18 +8,25 @@ class Settings(BaseSettings):
     # API keys and connection urls
     OPENAI_API_KEY: str | None = None
     
-    OLLAMA_BASE_URL: str
+    OLLAMA_BASE_URL: str = "http://localhost:11434"
     OLLAMA_API_KEY: str | None = None
     OLLAMA_MODEL: str | None = None
+    
     # LangSmith / LangChain Config
     LANGCHAIN_TRACING_V2: bool = False
     LANGCHAIN_ENDPOINT: str = "https://api.smith.langchain.com"
     LANGCHAIN_API_KEY: str | None = None
     LANGCHAIN_PROJECT: str = "paprika-agent"
+    
+    OPENWEATHER_BASE_URL: str = "http://api.openweathermap.org/data/2.5"
+    OPENWEATHER_API_KEY: str | None = None
+
+    
     model_config = SettingsConfigDict(
         env_file=".env", # tell Pydantic where to load env variables from
         extra="ignore",
     ) 
+    
 settings = Settings()
 
 # Export to System Environment 

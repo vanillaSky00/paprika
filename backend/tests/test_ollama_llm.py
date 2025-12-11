@@ -2,7 +2,13 @@ import pytest
 from pydantic import BaseModel, Field
 from app.deps import get_llm
 from app.config import settings
+
+
 @pytest.mark.asyncio
+@pytest.mark.skipif(
+    not settings.OLLAMA_API_KEY,
+    reason="OLLAMA_API_KEY not set; skipping live OpenAI test.",
+)
 async def test_ollama_simple_text():
     """
     test1: ensure basic connection

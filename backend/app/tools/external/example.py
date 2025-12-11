@@ -17,7 +17,7 @@ class ExampleToolBuilder(BaseToolBuilder):
         if not (api_key and base_url):
             return None
 
-        def get_example(city: str) -> str:
+        async def get_example(city: str) -> str:
             try:
                 pass
             except Exception:

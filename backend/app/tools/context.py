@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from typing import Any
+from app.config import Settings
 
 @dataclass
 class ToolContext:
@@ -7,6 +8,6 @@ class ToolContext:
     The 'Toolbox' passed to every builder.
     If you add a new global dependency (like Redis), just add it here.
     """
-    settings: Any
+    settings: Settings 
     game_state: Any = None
     db_session: Any = None
