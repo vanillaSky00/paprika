@@ -6,6 +6,15 @@ from .llm.openai_client import OpenAIClient
 from .llm.ollama_client import OllamaClient 
 
 def _build_llm(provider: str, model: str) -> BaseLLMClient:
+      
+    if provider == "ollama":
+        print(f"DEBUG: Config API Key is: {settings.OLLAMA_API_KEY}")
+        return OllamaClient(
+            model=model,
+            base_url=settings.OLLAMA_BASE_URL,
+            api_key=settings.OLLAMA_API_KEY
+        )
+    
     if provider == "openai":
         if not settings.OPENAI_API_KEY:
             raise RuntimeError("OPENAI_API_KEY missing in .env!")
@@ -13,13 +22,6 @@ def _build_llm(provider: str, model: str) -> BaseLLMClient:
             model=model,
             api_key=settings.OPENAI_API_KEY
         )
-        
-    if provider == "ollama":
-        return OllamaClient(
-            model=model,
-            base_url=settings.OLLAMA_BASE_URL
-        )
-    
     raise ValueError(f"Unknown provider: {provider}")
 
 @lru_cache
