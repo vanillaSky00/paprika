@@ -12,52 +12,40 @@ class BaseToolBuilder(ABC):
     
 class ToolRegistry:
     def __init__(self):
-        """
-        Store the class itself, not an instantiated object. 
-        
-        Consider:
-        Dict[str, BaseToolBuilder]
-            {
-            "WeatherToolBuilder": WeatherToolBuilder()   # instance
-            }
-        
-        But we want
-            {
-            "WeatherToolBuilder": WeatherToolBuilder     # class
-            }
-        """
         self._builders: dict[str, type[BaseToolBuilder]] = {}
-        self._shortcuts: dict[str, str] = {} # handle naming collsion
+        self._shortcuts: dict[str, str] = {} 
+        self._seen_shortcuts: set[str] = set()
         
     def register(self, cls: type[BaseToolBuilder]) -> type[BaseToolBuilder]:
         """
         DECORATOR: Signs a class up for the talent show.
-        Usage: 
-            @registry.register
-            class WeatherToolBuilder(BaseToolBuilder):
-                pass
         """
-        #self._builders[cls.__name__] = cls # would crash if same class name in different modules
         full_name = f"{cls.__module__}.{cls.__name__}"
         short_name = cls.__name__
         
+        # 1. Always store the safe Full Name
         if full_name in self._builders:
             logger.warning(f"Overwriting existing tool registration: {full_name}")
-        
         self._builders[full_name] = cls
         
-        if short_name not in self._shortcuts:
-            self._shortcuts[short_name] = full_name
-        else:
+        # 2. Manage the Shortcut (Collision Logic)
+        if short_name in self._shortcuts:
+            # Collision #1: Second time we see this name. Remove ambiguity.
             logger.warning(f"Name collision detected for '{short_name}'. Removing shortcut. Use full path.")
             del self._shortcuts[short_name]
-        
+        elif short_name in self._seen_shortcuts:
+            # Collision #2+: We already banned this. Warn and ignore.
+            logger.warning(f"Name collision: '{short_name}' (3rd+ copy). Shortcut remains banned.")
+        else:
+            # Unique so far: Create shortcut.
+            self._shortcuts[short_name] = full_name
+            self._seen_shortcuts.add(short_name)
+            
         return cls
     
     def build_all(self, context: ToolContext) -> list[StructuredTool]:
         """
-        The 'Late Binding' Event.
-        Happens only once, when the server starts.
+        The 'Late Binding' Event. Happens only once at startup.
         """
         active_tools = []
         logger.info("Initializing %d tools...", len(self._builders))
@@ -70,14 +58,15 @@ class ToolRegistry:
     def build_selected(self, names: list[str], context: ToolContext) -> list[StructuredTool]:
         """
         Builds only a specific subset of tools.
-        Useful for assigning specific skills to specific agents.
         """
         tools = []
         for name in names:
+            # Try full name first
             if name in self._builders:
                 self._safe_build(name, self._builders[name], context, tools)
                 continue
             
+            # Then try shortcut
             resolved_name = self._shortcuts.get(name)
             if resolved_name and resolved_name in self._builders:
                 self._safe_build(resolved_name, self._builders[resolved_name], context, tools)
@@ -100,5 +89,4 @@ class ToolRegistry:
         except Exception:
             logger.exception(f"Tool '{name}' failed to build.")
   
-    
 tool_registry = ToolRegistry()
