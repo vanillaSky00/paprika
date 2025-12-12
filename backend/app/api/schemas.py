@@ -86,7 +86,7 @@ class AgentAction(BaseModel):
     thought_trace: Optional[str] = None 
     
     # The Command
-    tool_name: str         # e.g., "move_to", "interact", "say", "spawn_object"
+    function: str         # e.g., "move_to", "interact", "say", "spawn_object"
     args: Dict[str, Any] = Field(default_factory=dict) # e.g., {"target_id": "Stove_01"} or {"text": "Hi!"}
     
     # Meta-data for the Agent (Did this finish the goal?)

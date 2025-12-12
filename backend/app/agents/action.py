@@ -1,9 +1,13 @@
+import re
 import json
+import logging
 from langchain_core.tools import StructuredTool
 from langchain_core.messages import SystemMessage, HumanMessage
 from app.llm.base import BaseLLMClient
 from app.api.schemas import Perception, AgentAction
 from app.prompts import loader as ld
+
+logger = logging.getLogger(__name__)
 
 class ActionAgent:
     def __init__(self,
@@ -12,9 +16,10 @@ class ActionAgent:
                  template_name: str = "system_main",
                  ):
         self.llm = llm
+        self.tools = tools or []
         self.system_prompts = ld.build_system_prompt(template_name, tools)
     
-    def render_system_message(self):
+    def render_system_message(self) -> SystemMessage:
         return SystemMessage(content=self.system_prompts)
     
     def render_human_message(
@@ -24,7 +29,7 @@ class ActionAgent:
         current_task,
         last_plan="",
         critique="",
-    ):
+    ) -> HumanMessage:
         """
         The eyes of LLM: the 'Context' construction, tell llm what happened
         """
@@ -42,57 +47,96 @@ class ActionAgent:
         else:
             visuals = "I see nothing interactable nearby"
 
-        status = f"""
-        Time: {p['time_hour']},
-        Location: {p['location_id']},
-        Holding: {p['held_item']}
-        """
+        # Make status
+        content = f"""
+        --- OBSERVATION ---
+        Time: {perception.time_hour}:00
+        Location: {perception.location_id}
+        Holding: {perception.held_item or "Nothing"}
+        Visible: {visuals}
 
-        task_context = f"""
+        --- TASK ---
         Current Goal: {current_task}
         """
 
-        feedback = ""
-        if last_plan:
-            if critique:
-                feedback = f"""
-                --- ❌ PREVIOUS PLAN FAILED ---
-                Your last attempt: {json.dumps(last_plan)}
-                Error from Engine: {critique}
-                (Critique: You cannot do that action right now. Try a different tool.)
-                """
-            else:
-                feedback = f"""
-                --- ✅ PREVIOUS PLAN SUCCESS ---
-                Last action succeeded. Continue to the next step.
-                """
-
-        content = f"""
-        --- OBSERVATION ---
-        {status.strip()}
-        {visuals}
-        {last_plan}
-        --- TASK ---
-        {task_context.strip()}
-
-        {feedback}
-
-        Based on this, what is the next step?
-        """
+        # Voyager Feedback Loop
+        if last_plan and critique:
+            content += f"""
+            
+            --- PREVIOUS FAILURE ---
+            Your last plan failed.
+            Plan: {json.dumps(last_plan)}
+            Error/Critique: {critique}
+            
+            ADVICE: Use a different tool or check your arguments.
+            """
 
         return HumanMessage(content=content)
 
-    def generate_plan(self):
+    async def generate_plan(
+        self,
+        *,
+        perception: Perception,
+        current_task,
+        last_plan="",
+        critique="",) -> list[AgentAction]:
         """
         The Main Loop: Context -> LLM -> JSON
         """
-        sys_msg = self.render_system_message()
+        response_text = await self.llm.generate_response(
+            system_prompt=self.render_system_message().content,
+            user_message=self.render_human_message(
+                perception=perception,
+                current_task=current_task,
+                last_plan=last_plan,
+                critique=critique
+            ).content
+        )
         
-        pass
+        print(f"\n\n[LLM response]:{response_text}\n")
+        
+        return self._parse_response(response_text)
     
-    def _process_response(self, content: str) -> list[AgentAction]:
+    def _parse_response(self, content: str) -> list[AgentAction]:
         """
         Parses the LLM output, expect JSON.
         """
-        pass
+        try:
+            # Find a JSON list [...] spanning multiple lines
+            match = re.search(r"\[.*\]", content, re.DOTALL)
+            
+            if match:
+                json_str = match.group(0)
+            else: 
+                # Fallback: Maybe it returned a single object {...} instead of a list
+                match_single = re.search(r"\{.*\}", content, re.DOTALL)
+                if match_single:
+                    json_str = f"{[match_single.group(0)]}"
+                else:
+                    logger.warning(f"No JSON structure found in response: {content[:100]}...")
+                    return []
+            
+            data = json.loads(json_str)
+            
+            validate_action = []
+            for i, item in enumerate(data):
+                try:
+                    # Can add customized error handle if llm use other key in dict rather than 'function'
+                    action = AgentAction(**item)
+                    validate_action.append(action)
+                    
+                except Exception as e:
+                    logger.warning(f"Skipping invalid action at index {i}: {e}")
+                    continue
+            
+            return validate_action
+            
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON Decode Failed: {e}", extra={"content": content})
+            return []
+        
+        except Exception as e:
+            logger.exception("Unexpected error during parsing")
+            return []
+        
     
