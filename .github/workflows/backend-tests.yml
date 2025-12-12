@@ -60,4 +60,4 @@ jobs:
           DATABASE_URL: postgresql+asyncpg://admin:password@localhost:5432/paprika_ai
           # OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
-          run: make ci
+          make ci
