@@ -1,9 +1,6 @@
-import pytest
-import os
 from unittest.mock import MagicMock
 from app.tools.context import ToolContext
-from app.tools.external.weather import WeatherToolBuilder, WeatherInput
-from app.config import settings
+from app.tools.external.weather import WeatherToolBuilder
 
 # --- Test 1: Logic Check (No API Key) ---
 def test_weather_tool_disabled_without_key():

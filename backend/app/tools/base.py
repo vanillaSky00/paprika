@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 import logging
 from langchain_core.tools import StructuredTool
-from .context import ToolContext
+from app.tools.context import ToolContext
 
 logger = logging.getLogger(__name__)
 

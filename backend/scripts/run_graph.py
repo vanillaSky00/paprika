@@ -1,6 +1,6 @@
 import asyncio
-from app.agent.graph import agent_graph
-from app.agent.state import AgentState
+from app.agents.graph import agent_graph
+from app.agents.state import AgentState
 from app.api.schemas import Perception, GameMode, AgentActionType
 
 async def main():

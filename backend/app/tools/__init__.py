@@ -1,11 +1,11 @@
-from .base import tool_registry
-from .context import ToolContext
+from app.tools.base import tool_registry
+from app.tools.context import ToolContext
 
 # Explicit import:
 # We import the sub-packages. This triggers their __init__.py,
 # which imports their files, which runs the decorators.
-from . import external
-from . import internal
+import app.tools.external
+import app.tools.internal
 
 def load_global_tools(settings, game_state=None) -> list:
     """

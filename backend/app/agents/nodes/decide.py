@@ -1,7 +1,7 @@
 from app.llm.base import BaseLLMClient
 from app.api.schemas import GameMode, AgentAction
-from app.agent.state import AgentState
-from app.agent.prompts import DREAM_SYSTEM_PROMPT, REALITY_SYSTEM_PROMPT
+from app.agents.state import AgentState
+from backend.app.prompts.prompts import DREAM_SYSTEM_PROMPT, REALITY_SYSTEM_PROMPT
 
 async def decide_action(state: AgentState, llm: BaseLLMClient) -> AgentState:
     perception = state["perception"]

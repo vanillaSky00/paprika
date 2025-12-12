@@ -1,6 +1,6 @@
 from langgraph.graph import StateGraph, END
-from app.agent.state import AgentState
-from app.agent.nodes.decide import decide_action
+from app.agents.state import AgentState
+from app.agents.nodes.decide import decide_action
 from app.deps import get_llm
 
 async def run_decide(state: AgentState):

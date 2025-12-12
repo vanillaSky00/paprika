@@ -1,9 +1,9 @@
 from typing import List
 from sqlalchemy import select
-from ..api.schemas import MemoryDTO, CreateMemoryDTO
-from .base import BaseMemoryStore
-from .models import Memory 
-from .vector_store import embed_text
+from app.api.schemas import MemoryDTO, CreateMemoryDTO
+from app.memory.base import BaseMemoryStore
+from app.memory.models import Memory 
+from app.memory.vector_store import embed_text
 
 class PostgresMemoryStore(BaseMemoryStore):
     def __init__(self, session_factory):

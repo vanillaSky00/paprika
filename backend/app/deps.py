@@ -1,9 +1,9 @@
 from typing import Optional
 from functools import lru_cache
-from .config import settings
-from .llm.base import BaseLLMClient
-from .llm.openai_client import OpenAIClient
-from .llm.ollama_client import OllamaClient 
+from app.config import settings
+from app.llm.base import BaseLLMClient
+from app.llm.openai_client import OpenAIClient
+from app.llm.ollama_client import OllamaClient 
 
 def _build_llm(provider: str, model: str) -> BaseLLMClient:
       

@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import List
-from ..api.schemas import MemoryDTO, CreateMemoryDTO
+from app.api.schemas import MemoryDTO, CreateMemoryDTO
 
 class BaseMemoryStore(ABC):
     @abstractmethod
