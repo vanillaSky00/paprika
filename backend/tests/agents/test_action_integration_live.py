@@ -9,6 +9,10 @@ from app.tools import load_global_tools
 # Marks this test as async (requires pytest-asyncio installed)
 @pytest.mark.paid
 @pytest.mark.asyncio
+@pytest.mark.skipif(
+    not settings.OPENAI_API_KEY,
+    reason="OPENAI_API_KEY not set; skipping live OpenAI test.",
+)
 async def test_action_integration_live(dummy_perception):
     """
     LIVE INTEGRATION TEST

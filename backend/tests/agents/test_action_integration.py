@@ -7,6 +7,7 @@ from app.tools import load_global_tools
 def test_action_integration_prompt_rendering(dummy_perception):
     llm = get_default_llm()
     tools = load_global_tools(settings=settings)
+    settings.OPENAI_API_KEY="fake"
     agent = ActionAgent(llm, tools)
 
     print("TOOLS LEN =", len(tools))
