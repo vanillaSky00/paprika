@@ -5,6 +5,7 @@ from app.deps import get_default_llm
 from app.config import settings
 
 # Marks this test as async (requires pytest-asyncio installed)
+@pytest.mark.paid
 @pytest.mark.asyncio
 async def test_action_integration_live(dummy_perception):
     """

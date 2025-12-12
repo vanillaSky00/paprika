@@ -1,20 +1,24 @@
 # Use uv for everything
 PY = uv run
 
-.PHONY: test test-unit test-integration agent-run
+.PHONY: test test-all lint format
 
-# Run all tests
+# Run only free tests (Default)
 test:
+	$(PY) pytest -m "not paid"
+
+# Run ALL tests, including those that cost money
+test-all:
 	$(PY) pytest
 
-# Just unit tests (no integration)
-test-unit:
-	$(PY) pytest -m "not integration"
+# Format code (using ruff, which uv often pairs with)
+format:
+	$(PY) ruff format .
 
-# Only integration tests
-test-integration:
-	$(PY) pytest -m integration
+# Check for linting errors
+lint:
+	$(PY) ruff check .
 
-# Run the agent graph debug script (Paprika agent one-shot)
-agent-run:
-	$(PY) python scripts/run_graph.py
+# Re-run against real API and update cassettes (Costs money)
+update-tapes:
+    $(PY) pytest --record-mode=rewrite

@@ -1,6 +1,16 @@
+import os
 import pytest
 from datetime import datetime
 
+def pytest_configure(config):
+    config.addinivalue_line("markers", "paid: tests that call paid APIs")
+    config.addinivalue_line("markers", "integration: hits real external services")
+
+@pytest.fixture(scope="session")
+def require_api_key():
+    if not os.getenv("OPENAI_API_KEY"):
+        pytest.skip("API key not set")
+        
 from app.api.schemas import (
     WorldObject,
     Perception,

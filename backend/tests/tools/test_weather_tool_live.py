@@ -4,6 +4,7 @@ from app.tools.external.weather import WeatherToolBuilder
 from app.config import settings
 
 # --- Integration Check (Real API Call) ---
+@pytest.mark.paid
 @pytest.mark.asyncio
 @pytest.mark.skipif(
     not settings.OPENWEATHER_API_KEY,

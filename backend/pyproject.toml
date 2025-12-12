@@ -26,6 +26,7 @@ dev = [
     "langgraph-cli[inmem]>=0.4.9",
     "pytest>=9.0.2",
     "pytest-asyncio>=1.3.0",
+    "pytest-recording>=0.13.4",
 ]
 
 [tool.pytest.ini_options]
@@ -33,5 +34,6 @@ pythonpath = "."
 asyncio_mode = "auto"
 testpaths = ["tests"]
 markers = [
-    "integration: marks tests as integration tests (deselect with '-m \"not integration\"')",
+    "paid: tests that call paid APIs",
+    "integration: tests that call external services",
 ]
