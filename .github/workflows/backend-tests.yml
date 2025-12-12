@@ -54,10 +54,10 @@ jobs:
       - name: Install Dependencies
         run: uv sync
 
-      - name: Run Tests
+      - name: Run CI (lint + free tests)
         env:
           PYTHONPATH: .   # <--- ADD THIS LINE (It forces Python to look in current folder)
           DATABASE_URL: postgresql+asyncpg://admin:password@localhost:5432/paprika_ai
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          # OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
-          uv run pytest
+          run: make ci
