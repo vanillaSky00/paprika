@@ -1,9 +1,13 @@
+import pytest
 from app.agents.action import ActionAgent
 from app.config import settings
 from app.deps import get_default_llm
 from app.tools import load_global_tools
 
-
+@pytest.mark.skipif(
+    not settings.OPENAI_API_KEY,
+    reason="OPENAI_API_KEY not set; skipping live OpenAI test.",
+)
 def test_action_integration_prompt_rendering(dummy_perception):
     llm = get_default_llm()
     tools = load_global_tools(settings=settings)
