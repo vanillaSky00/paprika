@@ -1,28 +1,33 @@
 import os
-import pytest
 from datetime import datetime
+
+import pytest
+
+from app.api.schemas import (
+    AgentAction,
+    CreateMemoryDTO,
+    GameMode,
+    MemoryDTO,
+    Perception,
+    WorldObject,
+)
+
 
 def pytest_configure(config):
     config.addinivalue_line("markers", "paid: tests that call paid APIs")
     config.addinivalue_line("markers", "integration: hits real external services")
 
+
 @pytest.fixture(scope="session")
 def require_api_key():
     if not os.getenv("OPENAI_API_KEY"):
         pytest.skip("API key not set")
-        
-from app.api.schemas import (
-    WorldObject,
-    Perception,
-    AgentAction,
-    MemoryDTO,
-    CreateMemoryDTO,
-    GameMode,
-)
+
 
 # ------------------------------------------------------------------
 # World Objects (Unity-side perception)
 # ------------------------------------------------------------------
+
 
 @pytest.fixture
 def dummy_stove():
@@ -67,6 +72,7 @@ def dummy_world_objects(dummy_stove, dummy_tomato, dummy_plate):
 # Perception (Unity → Backend)
 # ------------------------------------------------------------------
 
+
 @pytest.fixture
 def dummy_perception(dummy_world_objects):
     return Perception(
@@ -85,6 +91,7 @@ def dummy_perception(dummy_world_objects):
 # ------------------------------------------------------------------
 # Agent Actions (Backend → Unity)
 # ------------------------------------------------------------------
+
 
 @pytest.fixture
 def dummy_action_move_to():
@@ -115,6 +122,7 @@ def dummy_action_interact():
 # ------------------------------------------------------------------
 # Memory objects
 # ------------------------------------------------------------------
+
 
 @pytest.fixture
 def dummy_create_memory():

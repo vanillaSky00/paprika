@@ -27,6 +27,7 @@ dev = [
     "pytest>=9.0.2",
     "pytest-asyncio>=1.3.0",
     "pytest-recording>=0.13.4",
+    "ruff>=0.14.9",
 ]
 
 [tool.pytest.ini_options]
@@ -35,5 +36,32 @@ asyncio_mode = "auto"
 testpaths = ["tests"]
 markers = [
     "paid: tests that call paid APIs",
-    "integration: tests that call external services",
 ]
+
+[tool.ruff]
+# 1. Target Python version (adjust to match your project)
+target-version = "py311"
+
+# 2. Line length: 88 is standard (Black style), 120 is common for modern screens
+line-length = 88
+
+[tool.ruff.lint]
+# Conservative, logic-safe linting
+select = [
+  "E",  # syntax / indentation errors
+  "W",  # whitespace warnings (safe)
+  "F",  # real errors (undefined names, etc.)
+  "B",  # likely bugs (no logic rewrite)
+  "I",  # import order checks (no auto-fix in check mode)
+]
+
+# Ignore rules that conflict with framework / pattern code
+ignore = [
+  "E501",  # long lines (prompts, JSON, SQL)
+  "F401",  # unused imports (often intentional side effects)
+  "F841",  # unused variables (hooks, placeholders)
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"

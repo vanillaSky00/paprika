@@ -1,24 +1,40 @@
-# Use uv for everything
-PY = uv run
+# Runner
+PY := uv run
 
-.PHONY: test test-all lint format
+.PHONY: test test-all lint format fix update-tapes ci help
 
-# Run only free tests (Default)
+help:
+	@echo "make lint         - ruff check (read-only)"
+	@echo "make test         - pytest excluding paid tests"
+	@echo "make ci           - lint + free tests"
+	@echo "make test-all     - run all tests (may cost money)"
+	@echo "make update-tapes - rewrite VCR cassettes (costs money)"
+	@echo "make format       - ruff format (rewrites code)"
+	@echo "make fix          - ruff check --fix (rewrites some code)"
+
+# Default: Run free tests
 test:
 	$(PY) pytest -m "not paid"
 
-# Run ALL tests, including those that cost money
-test-all:
-	$(PY) pytest
+# CI-safe: read-only checks + free tests
+ci: lint test
 
-# Format code (using ruff, which uv often pairs with)
-format:
-	$(PY) ruff format .
-
-# Check for linting errors
 lint:
 	$(PY) ruff check .
 
-# Re-run against real API and update cassettes (Costs money)
+# Optional targets (these DO modify files)
+format:
+	$(PY) ruff format .
+
+fix:
+	$(PY) ruff check --fix .
+
+# Potentially expensive (opt-in)
+test-all:
+	@test "$(CONFIRM_PAID)" = "1" || (echo "Set CONFIRM_PAID=1 to run paid tests"; exit 1)
+	$(PY) pytest
+
+# Rewrite cassettes (costs money + modifies cassette files)
 update-tapes:
-    $(PY) pytest --record-mode=rewrite
+	@test "$(CONFIRM_PAID)" = "1" || (echo "Set CONFIRM_PAID=1 to rewrite cassettes"; exit 1)
+	$(PY) pytest -m "paid" --record-mode=rewrite
