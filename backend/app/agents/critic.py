@@ -13,7 +13,8 @@ class CriticAgent(BaseAgent):
         llm: BaseLLMClient, 
         template_name="critic", 
         tools=None,
-        mode="auto"):
+        mode="auto"
+    ):
         super().__init__(llm, template_name, tools)
         self.mode = mode
         
@@ -55,27 +56,25 @@ class CriticAgent(BaseAgent):
         sys_msg_content = self.render_system_message().content
         human_msg_content = self.render_human_message(perception, current_task).content
         
-        if self.mode == "manual":
-            return self.human_check_task_success()
-        
-        elif self.mode == "auto":
-            return await self.ai_check_task_success(
+        if self.mode == "auto":
+            return await self.__ai_check_task_success(
                 sys_msg_content, 
                 human_msg_content,
                 max_retries
             )
-            
+        elif self.mode == "manual":
+            return self.__human_check_task_success()    
         else:
             raise ValueError(f"Invalid mode: {self.mode}")
         
-    async def ai_check_task_success(
+    async def __ai_check_task_success(
             self, 
             sys_msg, 
             human_msg,
             max_retries
         ) -> CriticOutput:
         if max_retries == 0:
-            logger.critical("Failed to parse Critic Agent response. Max retries reached.")
+            logger.error("Failed to parse Critic Agent response. Max retries reached.")
             return CriticOutput(
                 success=False,
                 reasoning="Max retries",
@@ -83,14 +82,14 @@ class CriticAgent(BaseAgent):
             )
 
         try:
-            response_text = await self.llm.generate_response(
+            critic_resp = await self.llm.generate_response(
                 system_prompt=sys_msg,
                 user_message=human_msg
             )
             
-            logger.info(f"\n\n[LLM response]:{response_text}\n")
+            logger.info(f"\n\n[LLM response]:{critic_resp}\n")
             
-            data = self._parse_json_helper(response_text)
+            data = self._parse_json_helper(critic_resp)
             
             if not data:
                 raise ValueError("No JSON found")
@@ -101,14 +100,14 @@ class CriticAgent(BaseAgent):
         
         except Exception as e:
             logger.warning(f"Error parsing critic response: {e}. Retrying ({max_retries} left)...")
-            return await self.ai_check_task_success(
+            return await self.__ai_check_task_success(
                 sys_msg,
                 human_msg,
                 max_retries=max_retries - 1
             )
     
     # for dev
-    def human_check_task_success(self):
+    def __human_check_task_success(self):
         logger.info("\n--- HUMAN CRITIC MODE ---")
         
         while True:
@@ -125,5 +124,3 @@ class CriticAgent(BaseAgent):
             reasoning,
             feedback
         )
-        
-    
