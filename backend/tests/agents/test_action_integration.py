@@ -38,7 +38,7 @@ def test_action_integration_prompt_rendering(dummy_perception):
     not settings.OPENAI_API_KEY,
     reason="OPENAI_API_KEY not set; skipping live OpenAI test.",
 )
-async def test_action_integration_live_success_scenario(dummy_perception):
+async def test_action_integration_live(dummy_perception):
     """
     LIVE INTEGRATION TEST
     ---------------------
