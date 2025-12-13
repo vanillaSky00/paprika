@@ -11,7 +11,7 @@ from app.tools import load_global_tools
 def test_action_integration_prompt_rendering(dummy_perception):
     llm = get_default_llm()
     tools = load_global_tools(settings=settings)
-    agent = ActionAgent(llm, tools)
+    agent = ActionAgent(llm=llm, tools=tools)
 
     print("TOOLS LEN =", len(tools))
     print("TOOLS =", [getattr(t, "name", type(t).__name__) for t in tools])

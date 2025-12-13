@@ -12,7 +12,12 @@ logger = logging.getLogger(__name__)
 
 
 class ActionAgent(BaseAgent):
-    def __init__(self, llm, tools, template_name="action"):
+    def __init__(
+        self, 
+        llm: BaseLLMClient,
+        template_name="action",
+        tools: list[StructuredTool] | None = None, 
+    ):
         super().__init__(llm, template_name, tools)
 
     def render_human_message(
