@@ -4,7 +4,6 @@ from app.tools.context import ToolContext
 from app.tools.external.weather import WeatherToolBuilder
 
 
-# --- Test 1: Logic Check (No API Key) ---
 def test_weather_tool_disabled_without_key():
     # 1. Setup a fake settings object with NO key
     settings_stub = MagicMock()

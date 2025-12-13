@@ -106,3 +106,11 @@ class AgentAction(BaseModel):
 
     # Meta-data for the Agent (Did this finish the goal?)
     plan_complete: bool = False
+
+
+
+class CriticOutput(BaseModel):
+    success: bool = Field(description="Did the agent complete the ULTIMATE GOAL? (True/False)")
+    reasoning: str = Field(description="Explanation of why it succeeded or failed.")
+    feedback: str = Field(description="Constructive advice for the next step. If failed, say exactly what to fix.")
+    
