@@ -25,9 +25,26 @@ class CriticAgent(BaseAgent):
         """
         Compare the TASK (Goal) vs. the OBSERVATION (Result).
         """
-        pass
+        visible_objects = ", ".join(
+            [f"{o.id}({o.state})" for o in perception.nearby_objects]
+        ) or "None"
+        
+        content = f"""
+        --- GOAL ---
+        {current_task}
+
+        --- CURRENT STATE ---
+        Location: {perception.location_id}
+        Holding: {perception.held_item or "Nothing"}
+        Visible Objects: {visible_objects}
+        
+        --- SYSTEM FEEDBACK ---
+        Last Action Status: {perception.last_action_status or "None"}
+        Last Error: {perception.last_action_error or "None"}
+        """
+        return HumanMessage(content=content)
     
-    # Check entry point, act as router
+    # Check entry point, act as router 
     async def check_task_success(
         self,
         perception: Perception,
@@ -35,7 +52,7 @@ class CriticAgent(BaseAgent):
         max_retries=5
     ):
   
-        sys_msg_content = self.render_system_message().content,
+        sys_msg_content = self.render_system_message().content
         human_msg_content = self.render_human_message(perception, current_task).content
         
         if self.mode == "manual":
@@ -70,6 +87,8 @@ class CriticAgent(BaseAgent):
                 system_prompt=sys_msg,
                 user_message=human_msg
             )
+            
+            logger.info(f"\n\n[LLM response]:{response_text}\n")
             
             data = self._parse_json_helper(response_text)
             

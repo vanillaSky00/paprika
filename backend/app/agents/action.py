@@ -27,15 +27,10 @@ class ActionAgent(BaseAgent):
         The eyes of LLM: the 'Context' construction, tell llm what happened
         """
 
-        # Normalize Perception → dict
-        p = perception.model_dump()
+        items = [f"{o.id}({o.state})" for o in perception.nearby_objects]
 
-        visuals = ""
-        if p.get("nearby_objects"):
-            obj_list = [
-                f"{o['id']} ({o.get('state', 'default')})" for o in p["nearby_objects"]
-            ]
-            visuals = f"I can see: {', '.join(obj_list)}"
+        if items:
+            visuals = f"I can see: {', '.join(items)}"
         else:
             visuals = "I see nothing interactable nearby"
 
