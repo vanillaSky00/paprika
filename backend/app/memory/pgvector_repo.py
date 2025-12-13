@@ -1,19 +1,21 @@
 from typing import List
+
 from sqlalchemy import select
-from ..api.schemas import MemoryDTO, CreateMemoryDTO
-from .base import BaseMemoryStore
-from .models import Memory 
-from .vector_store import embed_text
+
+from app.api.schemas import CreateMemoryDTO, MemoryDTO
+from app.memory.base import BaseMemoryStore
+from app.memory.models import Memory
+from app.memory.vector_store import embed_text
+
 
 class PostgresMemoryStore(BaseMemoryStore):
     def __init__(self, session_factory):
         self._session_factory = session_factory
 
     async def save(self, memory: CreateMemoryDTO) -> None:
-        
         async with self._session_factory() as db:
             emb = embed_text(memory.content)
-            
+
             db_mem = Memory(
                 in_game_day=memory.day,
                 time_slot=memory.time,
@@ -23,15 +25,14 @@ class PostgresMemoryStore(BaseMemoryStore):
                 content=memory.content,
                 emotion_tags=memory.emotion_tags,
                 importance=memory.importance,
-                embedding=emb
+                embedding=emb,
             )
             db.add(db_mem)
-            
+
             await db.commit()
 
     async def fetch_recent(self, *, day: int, limit: int = 20) -> List[MemoryDTO]:
         async with self._session_factory() as db:
-            
             stmt = (
                 select(Memory)
                 .filter(Memory.in_game_day <= day)
@@ -40,7 +41,7 @@ class PostgresMemoryStore(BaseMemoryStore):
             )
             result = await db.execute(stmt)
             rows = result.scalars().all()
-            
+
             return [MemoryDTO.model_validate(row) for row in rows]
 
     async def fetch_similar(self, *, query: str, limit: int = 10) -> List[MemoryDTO]:
@@ -53,5 +54,5 @@ class PostgresMemoryStore(BaseMemoryStore):
             )
             result = await db.execute(stmt)
             rows = result.scalars().all()
-            
+
             return [MemoryDTO.model_validate(row) for row in rows]
