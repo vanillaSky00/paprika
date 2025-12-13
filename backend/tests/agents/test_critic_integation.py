@@ -1,4 +1,6 @@
 import pytest
+from unittest.mock import MagicMock
+from app.llm.base import BaseLLMClient
 from app.agents.critic import CriticAgent
 from app.config import settings
 from app.deps import get_default_llm
@@ -9,9 +11,9 @@ def test_critic_prompt_rendering(dummy_perception):
     """
     Verifies that the Critic correctly formats the Observation into a text prompt.
     """
-    llm = get_default_llm()
+    mock_llm = MagicMock(spec=BaseLLMClient)
     # Critic doesn't need tools
-    agent = CriticAgent(llm, mode="auto")
+    agent = CriticAgent(llm=mock_llm, mode="auto")
 
     # 1. Render the Prompt
     task = "Cook a fancy burger"

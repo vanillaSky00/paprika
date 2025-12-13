@@ -5,7 +5,6 @@ from app.tools.context import ToolContext
 from app.tools.external.weather import WeatherToolBuilder
 
 
-# --- Integration Check (Real API Call) ---
 @pytest.mark.paid
 @pytest.mark.asyncio
 @pytest.mark.skipif(

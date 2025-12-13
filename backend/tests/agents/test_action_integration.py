@@ -1,17 +1,16 @@
 import pytest
+from unittest.mock import MagicMock
+from app.llm.base import BaseLLMClient
 from app.agents.action import ActionAgent
 from app.config import settings
 from app.deps import get_default_llm
 from app.tools import load_global_tools
 
-@pytest.mark.skipif(
-    not settings.OPENAI_API_KEY,
-    reason="OPENAI_API_KEY not set; skipping live OpenAI test.",
-)
+
 def test_action_integration_prompt_rendering(dummy_perception):
-    llm = get_default_llm()
+    mock_llm = MagicMock(spec=BaseLLMClient)
     tools = load_global_tools(settings=settings)
-    agent = ActionAgent(llm=llm, tools=tools)
+    agent = ActionAgent(llm=mock_llm, tools=tools)
 
     print("TOOLS LEN =", len(tools))
     print("TOOLS =", [getattr(t, "name", type(t).__name__) for t in tools])
@@ -29,6 +28,7 @@ def test_action_integration_prompt_rendering(dummy_perception):
     assert human_msg is not None
     assert "Kitchen_A" in human_msg.content
     assert "Stove_01" in human_msg.content
+    assert "demo" in human_msg.content  
 
 
 # Marks this test as async (requires pytest-asyncio installed)
@@ -38,7 +38,7 @@ def test_action_integration_prompt_rendering(dummy_perception):
     not settings.OPENAI_API_KEY,
     reason="OPENAI_API_KEY not set; skipping live OpenAI test.",
 )
-async def test_action_integration_live(dummy_perception):
+async def test_action_integration_live_success_scenario(dummy_perception):
     """
     LIVE INTEGRATION TEST
     ---------------------
