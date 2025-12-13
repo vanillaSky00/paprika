@@ -1,30 +1,19 @@
 import json
 import logging
-import re
 
-from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.messages import HumanMessage
 from langchain_core.tools import StructuredTool
 
 from app.api.schemas import AgentAction, Perception
 from app.llm.base import BaseLLMClient
-from app.prompts import loader as ld
+from app.agents.base import BaseAgent
 
 logger = logging.getLogger(__name__)
 
 
-class ActionAgent:
-    def __init__(
-        self,
-        llm: BaseLLMClient,
-        tools: list[StructuredTool] | None,
-        template_name: str = "system_main",
-    ):
-        self.llm = llm
-        self.tools = tools or []
-        self.system_prompts = ld.build_system_prompt(template_name, tools)
-
-    def render_system_message(self) -> SystemMessage:
-        return SystemMessage(content=self.system_prompts)
+class ActionAgent(BaseAgent):
+    def __init__(self, llm, tools, template_name="action"):
+        super().__init__(llm, template_name, tools)
 
     def render_human_message(
         self,
@@ -98,48 +87,29 @@ class ActionAgent:
 
         logger.info(f"\n\n[LLM response]:{response_text}\n")
 
-        return self._parse_response(response_text)
+        return self._generate_plan_helper(response_text)
 
-    def _parse_response(self, content: str) -> list[AgentAction]:
+    def _generate_plan_helper(self, content: str) -> list[AgentAction]:
         """
-        Parses the LLM output, expect JSON.
+        Validates raw JSON into AgentAction objects.
         """
-        try:
-            # Find a JSON list [...] spanning multiple lines
-            match = re.search(r"\[.*\]", content, re.DOTALL)
+        data = self._parse_json_helper(content)
 
-            if match:
-                json_str = match.group(0)
-            else:
-                # Fallback: Maybe it returned a single object {...} instead of a list
-                match_single = re.search(r"\{.*\}", content, re.DOTALL)
-                if match_single:
-                    json_str = f"{[match_single.group(0)]}"
-                else:
-                    logger.warning(
-                        f"No JSON structure found in response: {content[:100]}..."
-                    )
-                    return []
-
-            data = json.loads(json_str)
-
-            validate_action = []
-            for i, item in enumerate(data):
-                try:
-                    # Can add customized error handle if llm use other key in dict rather than 'function'
-                    action = AgentAction(**item)
-                    validate_action.append(action)
-
-                except Exception as e:
-                    logger.warning(f"Skipping invalid action at index {i}: {e}")
-                    continue
-
-            return validate_action
-
-        except json.JSONDecodeError as e:
-            logger.error(f"JSON Decode Failed: {e}", extra={"content": content})
+        if not data:
             return []
+        
+        if isinstance(data, dict):
+            data = [data]
+            
+        valid_actions = []
+        for i, item in enumerate(data):
+            try:
+                # Can add customized error handle if llm use other key in dict rather than 'function'
+                action = AgentAction(**item)
+                valid_actions.append(action)
 
-        except Exception as e:
-            logger.exception("Unexpected error during parsing")
-            return []
+            except Exception as e:
+                logger.warning(f"Skipping invalid action at index {i}: {e}")
+                continue
+
+        return valid_actions
