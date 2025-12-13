@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -24,9 +24,9 @@ class WorldObject(BaseModel):
 
     id: str  # Unique ID from Unity (e.g., "Stove_01", "Tomato_Clone(5)")
     type: str  # "Station", "Ingredient", "Prop"
-    position: Dict[str, float]  # {"x": 1.0, "y": 0.0, "z": 5.0}
+    position: dict[str, float]  # {"x": 1.0, "y": 0.0, "z": 5.0}
     distance: float  # Distance from agent
-    state: Optional[str] = "default"  # "on", "off", "open", "empty", "burnt"
+    state: str | None = "default"  # "on", "off", "open", "empty", "burnt"
 
 
 class Perception(BaseModel):
@@ -44,16 +44,16 @@ class Perception(BaseModel):
 
     # Visuals (The "Voxel" equivalent for Unity)
     # The agent needs to know there is a 'Stove' nearby to decide to cook.
-    nearby_objects: List[WorldObject] = []
+    nearby_objects: list[WorldObject] = []
 
     # Body State (Crucial for Cooking/Crafting)
-    held_item: Optional[str] = None  # e.g., "Tomato" or None
+    held_item: str | None = None  # e.g., "Tomato" or None
 
     # The "Critic" Feedback Loop
     # Unity tells us if the LAST plan worked.
     # e.g., "Success" or "Failed: Stove is too far away"
-    last_action_status: Optional[str] = None
-    last_action_error: Optional[str] = None
+    last_action_status: str | None = None
+    last_action_error: str | None = None
 
 
 # --- 3. MEMORY (INTERNAL) ---
@@ -67,10 +67,10 @@ class MemoryDTO(BaseModel):
     location_id: str
     content: str
     memory_type: str
-    emotion_tags: List[str] = []
+    emotion_tags: list[str] = []
     importance: float
     created_at: datetime
-
+    embedding: list[float] | None = None
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -81,7 +81,7 @@ class CreateMemoryDTO(BaseModel):
     location_id: str
     content: str
     memory_type: str
-    emotion_tags: List[str] = []
+    emotion_tags: list[str] = []
     importance: float = 0.5
 
 
@@ -96,11 +96,11 @@ class AgentAction(BaseModel):
     """
 
     # The thought process (for debugging/UI bubbles)
-    thought_trace: Optional[str] = None
+    thought_trace: str | None = None
 
     # The Command
     function: str  # e.g., "move_to", "interact", "say", "spawn_object"
-    args: Dict[str, Any] = Field(
+    args: dict[str, Any] = Field(
         default_factory=dict
     )  # e.g., {"target_id": "Stove_01"} or {"text": "Hi!"}
 
@@ -108,9 +108,14 @@ class AgentAction(BaseModel):
     plan_complete: bool = False
 
 
-
 class CriticOutput(BaseModel):
     success: bool = Field(description="Did the agent complete the ULTIMATE GOAL? (True/False)")
     reasoning: str = Field(description="Explanation of why it succeeded or failed.")
     feedback: str = Field(description="Constructive advice for the next step. If failed, say exactly what to fix.")
+    
+
+class CurriculumOutput(BaseModel):
+    task: str = Field(description="The concise task name, e.g., 'Cook the raw meat'.")
+    reasoning: str = Field(description="Why this task is the logical next step.")
+    difficulty: int = Field(description="Estimated difficulty (1-10).")
     
