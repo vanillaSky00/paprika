@@ -27,3 +27,21 @@ class Memory(Base):
     embedding = Column(Vector(1536))
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+class Skill(Base):
+    __tablename__ = "skills"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    
+    # Core identity
+    task_name = Column(String, unique=True, index=True)      # e.g., "Cook Burger"
+    description = Column(Text)                               # Short summary for fast reading
+    step_text = Column(Text)                                 # The generic SOP (Step 1, Step 2...)
+    code = Column(Text, nullable=True)                       # Future-proof: For Lua/C# scripts later
+    
+    embedding = Column(Vector(1536))                         # Embedding of the description/task_name
+    
+    # Metadata
+    success_count = Column(Integer, default=0)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True))

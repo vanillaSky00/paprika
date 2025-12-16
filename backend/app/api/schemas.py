@@ -84,6 +84,11 @@ class CreateMemoryDTO(BaseModel):
     emotion_tags: list[str] = []
     importance: float = 0.5
 
+class SkillDTO(BaseModel):
+    task_name: str
+    description: str
+    steps_text: str
+    embedding: list[float] | None=None
 
 # --- 4. ACTION (OUTPUT TO UNITY) ---
 
@@ -118,4 +123,3 @@ class CurriculumOutput(BaseModel):
     task: str = Field(description="The concise task name, e.g., 'Cook the raw meat'.")
     reasoning: str = Field(description="Why this task is the logical next step.")
     difficulty: int = Field(description="Estimated difficulty (1-10).")
-    

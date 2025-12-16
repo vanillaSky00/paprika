@@ -1,10 +1,10 @@
 from typing import List
 
 from sqlalchemy import select
-
-from app.api.schemas import CreateMemoryDTO, MemoryDTO
+from sqlalchemy.sql import func
+from app.api.schemas import CreateMemoryDTO, MemoryDTO, SkillDTO
 from app.memory.base import BaseMemoryStore
-from app.memory.models import Memory
+from app.memory.models import Memory, Skill
 from app.memory.vector_store import embed_text
 
 
@@ -56,3 +56,42 @@ class PostgresMemoryStore(BaseMemoryStore):
             rows = result.scalars().all()
 
             return [MemoryDTO.model_validate(row) for row in rows]
+        
+    async def fetch_similar_skills(self, *, query: str, limit: int = 3) -> List[SkillDTO]:
+        async with self._session_factory() as db:
+            q_emb = embed_text(query)
+            stmt = (
+                select(Skill)
+                .order_by(Skill.embedding.l2_distance(q_emb))
+                .limit(limit)
+            )
+            result = await db.execute(stmt)
+            rows = result.scalars().all()
+            
+            return [SkillDTO.model_validate(row) for row in rows]
+
+    async def save_skill(self, skill: SkillDTO) -> None:
+        """
+        Update if exist, otherwise save
+        """
+        async with self._session_factory() as db:
+            stmt = select(Skill).where(Skill.task_name == skill.task_name)
+            existing = (await db.execute(stmt)).scalar_one_or_none()
+            
+            emb = embed_text(f"{skill.task_name}: {skill.description}")
+
+            if existing:
+                existing.step_text = skill.steps_text
+                existing.embedding = emb
+                existing.updated_at = func.now()
+                
+            else:
+                new_skill = Skill(
+                    task_name = skill.task_name,
+                    description = skill.description,
+                    step_text = skill.steps_text,
+                    embedding = emb
+                )
+                db.add(new_skill)
+
+            await db.commit()
