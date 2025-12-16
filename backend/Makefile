@@ -16,6 +16,9 @@ help:
 test:
 	$(PY) pytest -m "not paid"
 
+test-s:
+	$(PY) pytest -m "not paid" -s
+
 # CI-safe: read-only checks + free tests
 ci: lint test
 

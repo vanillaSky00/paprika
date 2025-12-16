@@ -88,8 +88,12 @@ class SkillAgent(BaseAgent):
         try:
             sop_resp = await self.llm.generate_response(
                 system_prompt=sys_msg,
-                human_msg=human_msg
+                user_message=human_msg
             )
+            
+            
+            print(f"\n\n[LLM response]:{sop_resp}\n")
+            logger.info(f"\n\n[LLM response]:{sop_resp}\n")
             
             data = self._parse_json_helper(sop_resp)
 
@@ -111,7 +115,3 @@ class SkillAgent(BaseAgent):
                 success,
                 max_retries - 1
             )
-        
-
-        
-        
