@@ -84,6 +84,11 @@ class CreateMemoryDTO(BaseModel):
     emotion_tags: list[str] = []
     importance: float = 0.5
 
+class SkillDTO(BaseModel):
+    task_name: str
+    description: str
+    steps_text: str
+    embedding: list[float] | None=None
 
 # --- 4. ACTION (OUTPUT TO UNITY) ---
 

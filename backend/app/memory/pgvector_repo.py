@@ -2,7 +2,7 @@ from typing import List
 
 from sqlalchemy import select
 
-from app.api.schemas import CreateMemoryDTO, MemoryDTO
+from app.api.schemas import CreateMemoryDTO, MemoryDTO, SkillDTO
 from app.memory.base import BaseMemoryStore
 from app.memory.models import Memory
 from app.memory.vector_store import embed_text
@@ -56,3 +56,16 @@ class PostgresMemoryStore(BaseMemoryStore):
             rows = result.scalars().all()
 
             return [MemoryDTO.model_validate(row) for row in rows]
+        
+    async def fetch_similar_skills(self, *, query: str, limit: int = 3) -> List[SkillDTO]:
+        async with self._session_factory() as db:
+            q_emb = embed_text(query)
+            stmt = (
+                select(SkillDTO)
+                .order_by(SkillDTO.embedding.l2_distance(q_emb))
+                .limit(limit)
+            )
+            result = await db.execute(stmt)
+            rows = result.scalars().all()
+            
+            return [SkillDTO.model_validate(row) for row in rows]
