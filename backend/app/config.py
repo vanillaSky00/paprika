@@ -9,6 +9,7 @@ class Settings(BaseSettings):
 
     # API keys and connection urls
     OPENAI_API_KEY: str | None = None
+    OPENAI_MODEL: str | None = None
 
     OLLAMA_BASE_URL: str = "http://localhost:11434"
     OLLAMA_API_KEY: str | None = None
@@ -23,9 +24,12 @@ class Settings(BaseSettings):
     OPENWEATHER_BASE_URL: str = "http://api.openweathermap.org/data/2.5"
     OPENWEATHER_API_KEY: str | None = None
 
+    DATABASE_URL: str = "postgresql+asyncpg://admin:password@localhost:5432/paprika_ai"
+    
     model_config = SettingsConfigDict(
         env_file=".env",  # tell Pydantic where to load env variables from
         extra="ignore",
+        case_sensitive=True
     )
 
 
