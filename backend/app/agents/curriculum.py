@@ -59,7 +59,7 @@ class CurriculumAgent(BaseAgent):
     async def propose_next_task(
         self,
         perception: Perception
-    ):
+    )-> CurriculumOutput:
         """
         Heuristic + RAG Decision Loop
         """
@@ -74,13 +74,13 @@ class CurriculumAgent(BaseAgent):
         ) 
         
         relavent_memory = await self.memory.fetch_similar(query=query, limit=self.memory_window_size)
-        sys_msg_content = self.render_system_message().content
-        human_msg_content = self.render_human_message(perception, relavent_memory).content
+        sys_msg = self.render_system_message().content
+        human_msg = self.render_human_message(perception, relavent_memory).content
         
         if self.mode == "auto":
             return await self.__propose_next_ai_task(
-                sys_msg_content,
-                human_msg_content
+                sys_msg,
+                human_msg
             )
         elif self.mode == "manual":
             return self.__propose_next_manual_task()

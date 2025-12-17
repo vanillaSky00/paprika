@@ -39,3 +39,6 @@ def get_llm(
 
 def get_default_llm() -> BaseLLMClient:
     return get_llm()
+
+def get_session_factory():
+    return Loc
