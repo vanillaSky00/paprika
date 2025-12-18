@@ -1,20 +1,43 @@
-# Use uv for everything
-PY = uv run
+# Runner
+PY := uv run
 
-.PHONY: test test-unit test-integration agent-run
+.PHONY: test test-all lint format fix update-tapes ci help
 
-# Run all tests
+help:
+	@echo "make lint         - ruff check (read-only)"
+	@echo "make test         - pytest excluding paid tests"
+	@echo "make ci           - lint + free tests"
+	@echo "make test-all     - run all tests (may cost money)"
+	@echo "make update-tapes - rewrite VCR cassettes (costs money)"
+	@echo "make format       - ruff format (rewrites code)"
+	@echo "make fix          - ruff check --fix (rewrites some code)"
+
+# Default: Run free tests
 test:
+	$(PY) pytest -m "not paid"
+
+test-s:
+	$(PY) pytest -m "not paid" -s
+
+# CI-safe: read-only checks + free tests
+ci: lint test
+
+lint:
+	$(PY) ruff check .
+
+# Optional targets (these DO modify files)
+format:
+	$(PY) ruff format .
+
+fix:
+	$(PY) ruff check --fix .
+
+# Potentially expensive (opt-in)
+test-all:
+	@test "$(CONFIRM_PAID)" = "1" || (echo "Set CONFIRM_PAID=1 to run paid tests"; exit 1)
 	$(PY) pytest
 
-# Just unit tests (no integration)
-test-unit:
-	$(PY) pytest -m "not integration"
-
-# Only integration tests
-test-integration:
-	$(PY) pytest -m integration
-
-# Run the agent graph debug script (Paprika agent one-shot)
-agent-run:
-	$(PY) python scripts/run_graph.py
+# Rewrite cassettes (costs money + modifies cassette files)
+update-tapes:
+	@test "$(CONFIRM_PAID)" = "1" || (echo "Set CONFIRM_PAID=1 to rewrite cassettes"; exit 1)
+	$(PY) pytest -m "paid" --record-mode=rewrite

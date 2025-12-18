@@ -1,6 +1,8 @@
 from functools import lru_cache
 from typing import List
+
 from langchain_openai import OpenAIEmbeddings
+
 
 @lru_cache
 def get_embedder() -> OpenAIEmbeddings:

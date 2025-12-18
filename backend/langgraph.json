@@ -1,0 +1,10 @@
+{
+  "python_version": "3.11",
+  "dependencies": [
+    "."
+  ],
+  "graphs": {
+    "paprika_brain": "./app/agent/graph.py:agent_graph"
+  },
+  "env": ".env"
+}
