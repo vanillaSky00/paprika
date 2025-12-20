@@ -1,6 +1,5 @@
 from functools import lru_cache
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 
 from app.config import settings
 from app.llm.base import BaseLLMClient, llm_registry
@@ -26,14 +25,16 @@ def get_default_llm() -> BaseLLMClient:
     return get_llm()
 
 
+_async_engine = create_async_engine(
+    settings.DATABASE_URL, 
+    echo=False,
+)
 
-_async_engine = create_async_engine(settings.DATABASE_URL, echo=False)
-
-_AsyncSessionLocal = sessionmaker(
+_AsyncSessionLocal = async_sessionmaker(
     _async_engine,
     class_=AsyncSession, 
     expire_on_commit=False
 )
 
 def get_session_factory():
-    return sessionmaker(_AsyncSessionLocal)
+    return _AsyncSessionLocal

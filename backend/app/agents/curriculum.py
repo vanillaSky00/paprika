@@ -108,8 +108,8 @@ class CurriculumAgent(BaseAgent):
                 user_message=human_msg
             )
             
-            print(f"\n\n[LLM response]:{curriculum_resp}\n")
-            logger.info(f"\n\n[LLM response]:{curriculum_resp}\n")
+            print(f"\n\n[Curriculum Agent response]:{curriculum_resp}\n")
+            logger.info(f"\n\n[Curriculum Agent response]:{curriculum_resp}\n")
             
             data = self._parse_json_helper(curriculum_resp)
             

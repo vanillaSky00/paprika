@@ -147,7 +147,7 @@ def decide_next_node(state: AgentState):
         return "curriculum"
 
 
-workflow = StateGraph(ActionAgent)
+workflow = StateGraph(AgentState)
 
 workflow.add_node("curriculum", curriculum_node)
 workflow.add_node("skill", skill_node)

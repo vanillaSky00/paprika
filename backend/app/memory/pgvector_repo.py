@@ -2,6 +2,7 @@ from typing import List
 
 from sqlalchemy import select
 from sqlalchemy.sql import func
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.schemas import CreateMemoryDTO, MemoryDTO, SkillDTO
 from app.memory.base import BaseMemoryStore
 from app.memory.models import Memory, Skill
