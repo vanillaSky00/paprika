@@ -1,5 +1,6 @@
 # Runner
 PY := uv run
+PYTEST_ARGS ?=
 
 .PHONY: test test-all lint format fix update-tapes ci help
 
@@ -14,7 +15,7 @@ help:
 
 # Default: Run free tests
 test:
-	$(PY) pytest -m "not paid"
+	$(PY) pytest -m "not paid" $(PYTEST_ARGS)
 
 test-s:
 	$(PY) pytest -m "not paid" -s
@@ -35,9 +36,16 @@ fix:
 # Potentially expensive (opt-in)
 test-all:
 	@test "$(CONFIRM_PAID)" = "1" || (echo "Set CONFIRM_PAID=1 to run paid tests"; exit 1)
-	$(PY) pytest
+	$(PY) pytest $(PYTEST_ARGS)
 
 # Rewrite cassettes (costs money + modifies cassette files)
 update-tapes:
 	@test "$(CONFIRM_PAID)" = "1" || (echo "Set CONFIRM_PAID=1 to rewrite cassettes"; exit 1)
 	$(PY) pytest -m "paid" --record-mode=rewrite
+
+
+
+# usage:
+# make test PYTEST_ARGS=-s
+# make test PYTEST_ARGS="-s -vv"
+# make test PYTEST_ARGS="-k weather"

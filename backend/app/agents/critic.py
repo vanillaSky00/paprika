@@ -87,7 +87,7 @@ class CriticAgent(BaseAgent):
                 user_message=human_msg
             )
             
-            logger.info(f"\n\n[LLM response]:{critic_resp}\n")
+            logger.info(f"\n\n[[Critic Agent response]]:{critic_resp}\n")
             
             data = self._parse_json_helper(critic_resp)
             

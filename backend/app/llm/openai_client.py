@@ -1,9 +1,9 @@
 from typing import Type, TypeVar
-
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel
 
-from .base import BaseLLMClient
+from app.config import Settings
+from app.llm.base import BaseLLMClient, BaseLLMBuilder, llm_registry
 
 # “T is a generic type that must be a subclass of BaseModel.”
 T = TypeVar("T", bound=BaseModel)
@@ -25,3 +25,16 @@ class OpenAIClient(BaseLLMClient):
 
         message = [("system", system_prompt), ("human", user_message)]
         return await structured_llm.ainvoke(message)
+
+@llm_registry.register("openai") 
+class OpenAIBuilder(BaseLLMBuilder):
+    def build(self, settings: Settings, model: str):
+        if not settings.OPENAI_API_KEY:
+            raise RuntimeError("OPENAI_API_KEY missing in .env!")
+        if not settings.OPENAI_MODEL:
+            raise RuntimeError("OPENAI_MODEL missing in .env!")
+        
+        return OpenAIClient(
+            api_key=settings.OPENAI_API_KEY,
+            model=settings.OPENAI_MODEL
+        )

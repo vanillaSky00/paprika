@@ -85,7 +85,7 @@ class ActionAgent(BaseAgent):
             ).content,
         )
 
-        logger.info(f"\n\n[LLM response]:{response_text}\n")
+        logger.info(f"\n\n[Action Agent response]:{response_text}\n")
 
         return self._generate_plan_helper(response_text)
 

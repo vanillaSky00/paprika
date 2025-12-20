@@ -123,3 +123,4 @@ class CurriculumOutput(BaseModel):
     task: str = Field(description="The concise task name, e.g., 'Cook the raw meat'.")
     reasoning: str = Field(description="Why this task is the logical next step.")
     difficulty: int = Field(description="Estimated difficulty (1-10).")
+    
