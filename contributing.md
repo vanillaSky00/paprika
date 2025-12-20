@@ -78,6 +78,13 @@ git commit -m "feat: short description"
 git push -u origin feature/my-change
 ```
 
+Merge in the local repo:
+```
+git pull origin <branch> --no-rebase
+# And tne edit with text editor, finally then push
+git push origin <branch>
+```
+
 ### Branch Naming Conventions
 ```
 <type>/<short-description>
