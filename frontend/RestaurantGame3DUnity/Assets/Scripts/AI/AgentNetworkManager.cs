@@ -7,6 +7,10 @@ using NativeWebSocket; // 需安裝 NativeWebSocket 套件
 
 public class AgentNetworkManager : MonoBehaviour
 {
+    [Header("Components")]
+    public AgentState agentState;          // 需在 Inspector 綁定
+    public AgentPerception agentPerception; // 需在 Inspector 綁定
+
     [Header("Connection Config")]
     // public string serverUrl = "ws://localhost:8000/api/ws/agent/player_1";
     public string serverUrl = "ws://localhost:8000/api/ws/agent/";
@@ -24,7 +28,7 @@ public class AgentNetworkManager : MonoBehaviour
     {
         string uuid = System.Guid.NewGuid().ToString();
         string fullUrl = serverUrl + uuid;
-        
+
         Debug.Log($"Generated Client ID: {uuid}");
         Debug.Log($"Connecting to: {fullUrl}");
 
@@ -67,7 +71,7 @@ public class AgentNetworkManager : MonoBehaviour
                 SendPerception();
             }
             // maybe dynamic freqency, for different work
-            //yield return new WaitForSeconds(1.0f); // 調整頻率
+            yield return new WaitForSeconds(1.0f); // 調整頻率
         }
     }
 
@@ -75,28 +79,24 @@ public class AgentNetworkManager : MonoBehaviour
     {
         isThinking = true;
 
+        agentState.GetLastActionStatus(out string status, out string error);
         // 1. 收集場景資訊 (這裡要對應 Python 的 Perception Schema)
         var perception = new PerceptionData
         {
             time_hour = System.DateTime.Now.Hour, // 或遊戲內時間
             day = 1, // 遊戲天數
             mode = "reality",
-            location_id = "Kitchen", // 需要實作區域檢測邏輯
-            player_nearby = true,
-            
-            // 收集附近的物件
-            nearby_objects = ScanNearbyObjects(),
-            
-            held_item = null, // 根據實際狀況填寫
+            location_id = agentState.GetLocationId(),
+            player_nearby = agentPerception.CheckPlayerNearby(),
+            nearby_objects = agentPerception.ScanNearbyObjects(),
+            held_item = agentState.GetHeldItem(),
             
             // 重要：回報上一個動作的執行結果
-            last_action_status = "success", 
-            last_action_error = null
+            last_action_status = status,
+            last_action_error = error
         };
 
-        // 2. 序列化並傳送
         string json = JsonConvert.SerializeObject(perception);
-        // Debug.Log("Sending: " + json); // 除錯用
         await websocket.SendText(json);
     }
 
