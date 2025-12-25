@@ -4888,7 +4888,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   agentState: {fileID: 4415827119744518815}
-  agentPerception: {fileID: 4415827119744518814}
+  agentNearby: {fileID: 0}
   serverUrl: ws://localhost:8000/api/ws/agent/
   autoReconnect: 1
   agentTransform: {fileID: 3892231520170594338}
@@ -16235,11 +16235,11 @@ MonoBehaviour:
   m_GameObject: {fileID: 4415827119744518808}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: aba5dd10c5e7fa14fac1cf14b6b7b906, type: 3}
+  m_Script: {fileID: 11500000, guid: 2420fa481ac82ce4d9eab4ed89f17de2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   visionRadius: 5
-  playerTransform: {fileID: 3892231520170594338}
+  playerTransform: {fileID: 0}
   agentEyeTransform: {fileID: 0}
 --- !u!114 &4415827119744518815
 MonoBehaviour:

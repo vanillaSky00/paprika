@@ -9,7 +9,7 @@ public class AgentNetworkManager : MonoBehaviour
 {
     [Header("Components")]
     public AgentState agentState;          // 需在 Inspector 綁定
-    public AgentPerception agentPerception; // 需在 Inspector 綁定
+    public AgentNearby agentNearby; // 需在 Inspector 綁定
 
     [Header("Connection Config")]
     // public string serverUrl = "ws://localhost:8000/api/ws/agent/player_1";
@@ -87,8 +87,8 @@ public class AgentNetworkManager : MonoBehaviour
             day = 1, // 遊戲天數
             mode = "reality",
             location_id = agentState.GetLocationId(),
-            player_nearby = agentPerception.CheckPlayerNearby(),
-            nearby_objects = agentPerception.ScanNearbyObjects(),
+            player_nearby = agentNearby.CheckPlayerNearby(),
+            nearby_objects = agentNearby.ScanNearbyObjects(),
             held_item = agentState.GetHeldItem(),
             
             // 重要：回報上一個動作的執行結果

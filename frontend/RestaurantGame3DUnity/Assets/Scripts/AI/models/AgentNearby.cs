@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public class AgentPerception : MonoBehaviour
+public class AgentNearby : MonoBehaviour
 {
     [Header("Config")]
     public float visionRadius = 5.0f;
