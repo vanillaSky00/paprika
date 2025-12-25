@@ -44,18 +44,15 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
     
     try:
         while True:
-            # 1. Receive JSON from Client (Unity)
             data = await websocket.receive_json()
             
-            # 2. Parse Data (Validation)
             try:
                 perception = Perception(**data)
             except Exception as e:
-                logger.warning(f"Client #{client_id} sent invalid data: {e}")
+                logger.warning(f"⚠️ Client #{client_id} sent invalid data: {e}")
                 await manager.send_personal_message({"error": "Invalid Data Schema"}, websocket)
                 continue
             
-            # 3. Initialize Agent State
             initial_state = { 
                 "perception": perception,
                 "task": "Decide Next Task",
@@ -65,35 +62,27 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
                 "retry_count": 0
             }
             
-            # 4. Invoke the LangGraph Workflow
             final_state = await graph_app.ainvoke(initial_state)
             
-            # 5. Extract Results
             task_name = final_state.get("task", "Unknown")
-            # Convert generic AgentAction objects to dicts for JSON serialization
             plan_json = [action.model_dump() for action in final_state.get("plan", [])]
             
-            # 6. Construct Response
-            # Note: We map internal 'task' to external 'current_task' for clarity
             response = {
-                "client_id": str(client_id),
-                "current_task": task_name,
+                "client_id": client_id,
+                "task": task_name,
                 "plan": plan_json
             }
-            
-            # 7. Send back to Client
             await manager.send_personal_message(response, websocket)
         
     except WebSocketDisconnect:
         await manager.disconnect(websocket)
-        logger.info(f"Client #{client_id} disconnected")
+        logger.info("Client #{client_id} disconnect")
         
     except Exception as e:
-        logger.error(f"Critical Error for Client #{client_id}: {e}", exc_info=True)
+        logger.error(f"❌ Critical Error for Client #{client_id}: {e}", exc_info=True)
         await manager.disconnect(websocket)
         try:
-            # Close with Internal Server Error code (1011)
             await websocket.close(code=1011)
         except RuntimeError:
-            # Socket might already be closed
+            # Socket already closed
             pass

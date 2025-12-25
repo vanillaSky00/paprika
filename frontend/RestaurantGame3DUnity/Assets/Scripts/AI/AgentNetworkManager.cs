@@ -8,8 +8,11 @@ using NativeWebSocket; // 需安裝 NativeWebSocket 套件
 public class AgentNetworkManager : MonoBehaviour
 {
     [Header("Components")]
-    public AgentState agentState;          // 需在 Inspector 綁定
-    public AgentNearby agentNearby; // 需在 Inspector 綁定
+    public AgentState agentState;           // 需在 Inspector 綁定
+    public AgentNearby agentNearby;         // 需在 Inspector 綁定
+
+    [Header("Actions")]
+    public ActionDispatcher actionDispatcher;   // 需在 Inspector 綁定
 
     [Header("Connection Config")]
     // public string serverUrl = "ws://localhost:8000/api/ws/agent/player_1";
@@ -87,6 +90,14 @@ public class AgentNetworkManager : MonoBehaviour
             day = 1, // 遊戲天數
             mode = "reality",
             location_id = agentState.GetLocationId(),
+
+            self_position = new PositionData 
+            {
+                x = agentTransform.position.x,
+                y = agentTransform.position.y,
+                z = agentTransform.position.z
+            },
+
             player_nearby = agentNearby.CheckPlayerNearby(),
             nearby_objects = agentNearby.ScanNearbyObjects(),
             held_item = agentState.GetHeldItem(),
@@ -95,7 +106,7 @@ public class AgentNetworkManager : MonoBehaviour
             last_action_status = status,
             last_action_error = error
         };
-
+        //Debug.Log($"[準備傳送] 地點: {perception.location_id}");
         string json = JsonConvert.SerializeObject(perception);
         await websocket.SendText(json);
     }
@@ -128,28 +139,116 @@ public class AgentNetworkManager : MonoBehaviour
     private void HandleServerResponse(string json)
     {
         Debug.Log("Received Plan: " + json);
-        isThinking = false; // 解鎖，允許下一次傳送
 
         try
         {
             ServerResponse response = JsonConvert.DeserializeObject<ServerResponse>(json);
             
-            // TODO: 把這些動作傳給你的 ActionController 去執行
-            foreach (var action in response.plan)
+            if (response.plan != null && response.plan.Count > 0)
             {
-                Debug.Log($"Next Action: {action.function} on {JsonConvert.SerializeObject(action.args)}");
-                // StartCoroutine(actionController.Execute(action));
+                Debug.Log($"[Agent] 收到任務: {response.task}，共 {response.plan.Count} 個步驟");
+                // 改成啟動協程，一步一步執行
+                StartCoroutine(ExecutePlanRoutine(response.plan));
+            }
+            else
+            {
+                Debug.Log("[Agent] 收到回應但沒有計畫 (閒聊或思考中)");
+                isThinking = false; // 沒事做，直接解鎖思考
             }
         }
         catch (Exception e)
         {
             Debug.LogError("Parsing Error: " + e.Message);
+            isThinking = false; // 出錯也要解鎖
         }
     }
+    private IEnumerator ExecutePlanRoutine(List<AgentActionData> plan)
+    {
+        foreach (var action in plan)
+        {
+            Debug.Log($"[Agent] is running: {action.function} ({action.thought_trace})");
+            
+            // 1. 執行動作
+            actionDispatcher.DispatchAction(action.function, action.args);
+            
+            // 2. 等待動作完成
+            // 簡單做法：每個動作給它 3 秒鐘 (移動可能需要比較久)
+            // 進階做法：以後可以改寫成等待 Action 回傳 callback
+            yield return new WaitForSeconds(3.0f); 
+        }
 
+        Debug.Log("[Agent] Task Finished！");
+        
+        // 全部做完後，才允許 AI 再次看環境思考
+        isThinking = false; 
+        
+        // 可以選擇做完馬上再看一次環境
+        // SendPerception(); 
+    }
     private async void OnApplicationQuit()
     {
         if(websocket != null) await websocket.Close();
+    }
+    private void OnDestroy()
+    {
+        StopAllCoroutines();
+    }
+
+    [ContextMenu("測試：模擬 Server 指令 (Mock)")]
+    public void TestMockServerResponse()
+    {
+        // 1. 設定場景物件名稱 (請確認場景裡真的有這些名字的物件)
+        string itemName = "OnionBox";       // 要拿的東西
+        string tableName = "Plate_agent_2"; // 要放的桌子 (請自己改名字，例如 "Table" 或 "Plate")
+
+        // 2. 自動尋找物件
+        GameObject itemObj = GameObject.Find(itemName);
+        GameObject tableObj = GameObject.Find(tableName);
+
+        // 防呆檢查
+        if (itemObj == null || tableObj == null)
+        {
+            Debug.LogError($"[Test Error] 找不到物件！請檢查場景裡有沒有 '{itemName}' 和 '{tableName}'");
+            return;
+        }
+
+        // 3. 取得座標
+        Vector3 itemPos = itemObj.transform.position;
+        Vector3 tablePos = tableObj.transform.position;
+
+        Debug.Log($"[Test] 流程預備: {itemName} ({itemPos}) -> {tableName} ({tablePos})");
+
+        // 4. 捏造 4 步驟的 JSON 指令
+        // 流程: 走到箱子 -> 撿起來 -> 走到桌子 -> 放下去
+        string mockJson = $@"
+        {{
+            ""task"": ""運送洋蔥到櫃檯 (測試)"",
+            ""plan"": [
+                {{
+                    ""thought_trace"": ""1. 前往洋蔥箱"",
+                    ""function"": ""move_to"",
+                    ""args"": {{ ""target"": [{itemPos.x}, {itemPos.y}, {itemPos.z}] }}
+                }},
+                {{
+                    ""thought_trace"": ""2. 撿起洋蔥"",
+                    ""function"": ""pickup"",
+                    ""args"": {{ ""id"": ""{itemName}"" }}
+                }},
+                {{
+                    ""thought_trace"": ""3. 拿著洋蔥前往櫃檯"",
+                    ""function"": ""move_to"",
+                    ""args"": {{ ""target"": [{tablePos.x}, {tablePos.y}, {tablePos.z}] }}
+                }},
+                {{
+                    ""thought_trace"": ""4. 把洋蔥放在櫃檯上"",
+                    ""function"": ""put_down"",
+                    ""args"": {{ ""id"": ""{tableName}"" }}
+                }}
+            ]
+        }}";
+
+        // 5. 發送指令
+        HandleServerResponse(mockJson);
     }
 }
 
@@ -163,6 +262,8 @@ public class PerceptionData
     public string mode; // "reality", "dream"
     public string location_id;
     public bool player_nearby;
+    public PositionData self_position;
+
     public List<WorldObjectData> nearby_objects;
     public string held_item;
     public string last_action_status;
@@ -189,7 +290,7 @@ public class PositionData
 public class ServerResponse
 {
     public string client_id;
-    public string current_task;
+    public string task;
     public List<AgentActionData> plan;
 }
 

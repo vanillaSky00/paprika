@@ -2,11 +2,25 @@ using UnityEngine;
 
 public class AgentState : MonoBehaviour
 {
+    [ContextMenu("測試：假裝撿到蘋果")]
+    public void TestPickupApple()
+    {
+        SetHeldItem("Apple");
+        Debug.Log("測試指令已執行：Agent 現在手上有 Apple");
+    }
+
+    [ContextMenu("測試：顯示當前狀態")]
+    public void PrintStatus()
+    {
+        Debug.Log($"[AgentState 檢查] 地點: {currentLocationId}, 手持: {currentHeldItem}");
+    }
+    
     [Header("Status")]
     [SerializeField] private string currentLocationId = "Unknown";
     [SerializeField] private string currentHeldItem = null;
     [SerializeField] private string lastActionStatus = "none";
     [SerializeField] private string lastActionError = null;
+    public GameObject heldObj;
 
     public string GetLocationId()
     {
@@ -36,7 +50,16 @@ public class AgentState : MonoBehaviour
     {
         currentHeldItem = itemName;
     }
-
+    public void PickupObject(GameObject obj)
+    {
+        heldObj = obj;
+        currentHeldItem = obj.name;
+    }
+    public void DropObject()
+    {
+        heldObj = null;
+        currentHeldItem = null;
+    }
     public void ReportActionFinished(bool success, string errorMessage = null)
     {
         lastActionStatus = success ? "success" : "failure";

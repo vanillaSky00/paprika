@@ -74,7 +74,7 @@ def test_websocket_agent_flow():
             print(f"\nServer Response: {response}")
             
             assert response["client_id"] == "123"
-            assert response["current_task"] == "Explore the house"
+            assert response["task"] == "Explore the house"
             assert len(response["plan"]) == 1
             assert response["plan"][0]["function"] == "move_to"
             assert response["plan"][0]["args"]["target_id"] == "LivingRoom"
@@ -153,7 +153,7 @@ def test_websocket_live_static_world_failure():
                     # receive_json will block until message or disconnect
                     response = websocket.receive_json()
                     
-                    task = response.get("current_task", "Unknown")
+                    task = response.get("task", "Unknown")
                     print(f"👉 Step {steps+1}: Agent thought -> {task}")
                     steps += 1
                     
