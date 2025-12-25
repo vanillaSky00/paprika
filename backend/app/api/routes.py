@@ -34,18 +34,11 @@ manager = ConnectionManager()
 async def read_main():
     return {"msg": "Welcome to Paparika!"}
 
-"""
-RESTFUL API (based on HTTP) cannot satisfy the need for real-time system
-- Unity connects once to /ws/agent
-- Unity repeatedly sends “Perception”
-- Server replies with a “Plan”
-- Loop continues until disconnect
-"""
 @router.websocket("/ws/agent/{client_id}")
-async def websocket_endpoint(websocket: WebSocket, client_id: int):
+async def websocket_endpoint(websocket: WebSocket, client_id: str):
     """
-    Handles distinct sessions. 
-    Unity URL: ws://localhost:8000/api/ws/agent/player_1
+    Handles distinct sessions.
+    Unity URL Example: ws://localhost:8000/api/ws/agent/123
     """
     await manager.connect(websocket)
     
