@@ -2,14 +2,34 @@ services:
   db:
     image: pgvector/pgvector:pg16
     container_name: paprika_db
+    restart: always
     environment:
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: paprika_ai
+      POSTGRES_USER: ${POSTGRES_USER:-admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      POSTGRES_DB: ${POSTGRES_DB:-paprika_ai}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-admin} -d ${POSTGRES_DB:-paprika_ai}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  agent-runtime:
+    build: .
+    container_name: paprika_agent-runtime
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD:-password}@db:5432/${POSTGRES_DB:-paprika_ai}
+    ports:
+      - "8000:8000"
+
 volumes:
   postgres_data:

@@ -48,6 +48,17 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
             
             try:
                 perception = Perception(**data)
+                logger.info(
+                    f"👁️ Perception:\n \
+                    time_hour: {perception.time_hour}\n \
+                    day: {perception.day}\n \
+                    mode: {perception.mode}\n \
+                    location_id: {perception.location_id}\n \
+                    player_nearby: {perception.player_nearby}\n \
+                    nearby_objects: {perception.nearby_objects}\n \
+                    held_item: {perception.held_item}\n \
+                    last_action_status: {perception.last_action_status}\n \
+                    last_action_error: {perception.last_action_error}\n")
             except Exception as e:
                 logger.warning(f"⚠️ Client #{client_id} sent invalid data: {e}")
                 await manager.send_personal_message({"error": "Invalid Data Schema"}, websocket)
@@ -72,6 +83,11 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
                 "task": task_name,
                 "plan": plan_json
             }
+            logger.info(
+                    f"👁️ Response to Unity:\n \
+                    client_id: {response['client_id']}\n \
+                    task: {response['task']}\n \
+                    plan: {response['plan']}\n")
             await manager.send_personal_message(response, websocket)
         
     except WebSocketDisconnect:
