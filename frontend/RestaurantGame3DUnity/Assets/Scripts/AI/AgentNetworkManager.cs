@@ -211,40 +211,32 @@ public class AgentNetworkManager : MonoBehaviour
         StopAllCoroutines();
     }
 
-    [ContextMenu("測試：模擬 Server 指令 (Mock)")]
-    public void TestMockServerResponse()
+    [ContextMenu("測試：模擬 Server 指令 (Mock-Onion ID版)")]
+    public void TestMockServerResponse_NoNumbers()
     {
-        // 1. 設定場景物件名稱 (請確認場景裡真的有這些名字的物件)
-        string itemName = "OnionBox";       // 要拿的東西
-        string tableName = "Plate_agent_2"; // 要放的桌子 (請自己改名字，例如 "Table" 或 "Plate")
+        // 1. 設定場景物件名稱
+        string itemName = "OnionBox";       // 要拿的
+        string tableName = "Plate_agent_2"; // 要放的
 
-        // 2. 自動尋找物件
-        GameObject itemObj = GameObject.Find(itemName);
-        GameObject tableObj = GameObject.Find(tableName);
-
-        // 防呆檢查
-        if (itemObj == null || tableObj == null)
+        // 2. 防呆檢查 (只是為了確保場景沒壞，不需要取座標了)
+        if (GameObject.Find(itemName) == null || GameObject.Find(tableName) == null)
         {
-            Debug.LogError($"[Test Error] 找不到物件！請檢查場景裡有沒有 '{itemName}' 和 '{tableName}'");
+            Debug.LogError($"[Test Error] 找不到物件！請確認場景裡有 '{itemName}' 和 '{tableName}'");
             return;
         }
 
-        // 3. 取得座標
-        Vector3 itemPos = itemObj.transform.position;
-        Vector3 tablePos = tableObj.transform.position;
+        Debug.Log($"[Test] 啟動純 ID 導航測試: {itemName} -> {tableName}");
 
-        Debug.Log($"[Test] 流程預備: {itemName} ({itemPos}) -> {tableName} ({tablePos})");
-
-        // 4. 捏造 4 步驟的 JSON 指令
-        // 流程: 走到箱子 -> 撿起來 -> 走到桌子 -> 放下去
+        // 3. 捏造 JSON 指令 (完全不含座標數字)
+        // 注意看 move_to 的參數，現在只傳 "id"
         string mockJson = $@"
         {{
-            ""task"": ""運送洋蔥到櫃檯 (測試)"",
+            ""task"": ""運送洋蔥 (ID 導航版)"",
             ""plan"": [
                 {{
                     ""thought_trace"": ""1. 前往洋蔥箱"",
                     ""function"": ""move_to"",
-                    ""args"": {{ ""target"": [{itemPos.x}, {itemPos.y}, {itemPos.z}] }}
+                    ""args"": {{ ""id"": ""{itemName}"" }} 
                 }},
                 {{
                     ""thought_trace"": ""2. 撿起洋蔥"",
@@ -254,7 +246,7 @@ public class AgentNetworkManager : MonoBehaviour
                 {{
                     ""thought_trace"": ""3. 拿著洋蔥前往櫃檯"",
                     ""function"": ""move_to"",
-                    ""args"": {{ ""target"": [{tablePos.x}, {tablePos.y}, {tablePos.z}] }}
+                    ""args"": {{ ""id"": ""{tableName}"" }}
                 }},
                 {{
                     ""thought_trace"": ""4. 把洋蔥放在櫃檯上"",
@@ -264,7 +256,7 @@ public class AgentNetworkManager : MonoBehaviour
             ]
         }}";
 
-        // 5. 發送指令
+        // 4. 發送指令
         HandleServerResponse(mockJson);
     }
 }

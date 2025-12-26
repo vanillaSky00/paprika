@@ -108,7 +108,7 @@ class CurriculumAgent(BaseAgent):
                 user_message=human_msg
             )
             
-            print(f"\n\n[Curriculum Agent response]:{curriculum_resp}\n")
+            #print(f"\n\n[Curriculum Agent response]:{curriculum_resp}\n")
             logger.info(f"\n\n[Curriculum Agent response]:{curriculum_resp}\n")
             
             data = self._parse_json_helper(curriculum_resp)
@@ -129,7 +129,7 @@ class CurriculumAgent(BaseAgent):
             )
     
     def __propose_next_manual_task():
-        print("--- MANUAL TASK INPUT ---")
+        #print("--- MANUAL TASK INPUT ---")
         task = input("Enter Task: ").strip()
         reasoning = input("Enter Reasoning: ").strip()
         difficulty = input("Enter Difficulty: ").strip()
