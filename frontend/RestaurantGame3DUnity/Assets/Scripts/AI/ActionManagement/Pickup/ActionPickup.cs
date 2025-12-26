@@ -70,6 +70,9 @@ public class ActionPickup : MonoBehaviour, IAgentAction
             agentState.ReportActionFinished(false, errorMsg);
             return;
         }
+        Vector3 targetPostion = targetObj.transform.position;
+        targetPostion.y = transform.position.y; // 鎖定 Y 軸，避免狗狗抬頭看天
+        transform.LookAt(targetPostion);
         // 4. 執行撿取邏輯 (整合原本的 Inventory 系統)
         // 檢查目標有沒有 ItemBox 元件 (這是你原本 ActionController 裡的判斷邏輯)
         if (targetObj.TryGetComponent<ItemBox>(out ItemBox itemBox))
