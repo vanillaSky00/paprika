@@ -35,8 +35,8 @@ public class ActionPut : MonoBehaviour, IAgentAction
         }
 
         string targetId = args["id"].ToString();
-        GameObject targetObj = GameObject.Find(targetId);
-
+        ///GameObject targetObj = GameObject.Find(targetId);
+        GameObject targetObj = SmartObjectFinder.FindBestTarget(targetId, transform.position);
         if (targetObj != null)
         {
             // --- 新增：距離檢查 ---

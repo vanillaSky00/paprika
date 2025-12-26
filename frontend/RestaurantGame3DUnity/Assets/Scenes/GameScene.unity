@@ -700,7 +700,7 @@ NavMeshObstacle:
   m_Enabled: 1
   serializedVersion: 3
   m_Shape: 1
-  m_Extents: {x: 0.75, y: 0.5, z: 1.021}
+  m_Extents: {x: 0.75, y: 0.5, z: 0.75}
   m_MoveThreshold: 0.1
   m_Carve: 1
   m_CarveOnlyStationary: 1
@@ -9687,7 +9687,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5525071905573831802, guid: e1750098a086c7245aef7f1ca0f06ec3, type: 3}
       propertyPath: m_Name
-      value: Plate_agent_3
+      value: Preparation3
       objectReference: {fileID: 0}
     - target: {fileID: 5525071905573831802, guid: e1750098a086c7245aef7f1ca0f06ec3, type: 3}
       propertyPath: m_TagString
@@ -11762,7 +11762,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5525071905573831802, guid: e1750098a086c7245aef7f1ca0f06ec3, type: 3}
       propertyPath: m_Name
-      value: Plate_agent_1
+      value: Preparation1
       objectReference: {fileID: 0}
     - target: {fileID: 5525071905573831802, guid: e1750098a086c7245aef7f1ca0f06ec3, type: 3}
       propertyPath: m_TagString
@@ -12547,7 +12547,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5525071905573831802, guid: e1750098a086c7245aef7f1ca0f06ec3, type: 3}
       propertyPath: m_Name
-      value: Plate_agent_2
+      value: Preparation2
       objectReference: {fileID: 0}
     - target: {fileID: 5525071905573831802, guid: e1750098a086c7245aef7f1ca0f06ec3, type: 3}
       propertyPath: m_TagString
@@ -16735,7 +16735,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5525071905573831802, guid: e1750098a086c7245aef7f1ca0f06ec3, type: 3}
       propertyPath: m_Name
-      value: Plate_agent_4
+      value: Preparation4
       objectReference: {fileID: 0}
     - target: {fileID: 5525071905573831802, guid: e1750098a086c7245aef7f1ca0f06ec3, type: 3}
       propertyPath: m_TagString

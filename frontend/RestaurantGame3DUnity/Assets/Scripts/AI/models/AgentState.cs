@@ -21,6 +21,7 @@ public class AgentState : MonoBehaviour
     [SerializeField] private string lastActionStatus = "none";
     [SerializeField] private string lastActionError = null;
     public GameObject heldObj;
+    public bool IsActionExecuting { get; set; } = false;
 
     public string GetLocationId()
     {
@@ -64,5 +65,6 @@ public class AgentState : MonoBehaviour
     {
         lastActionStatus = success ? "success" : "failure";
         lastActionError = errorMessage;
+        IsActionExecuting = false;
     }
 }
