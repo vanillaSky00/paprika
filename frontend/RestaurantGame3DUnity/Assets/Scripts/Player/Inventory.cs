@@ -32,6 +32,19 @@ public class Inventory : MonoBehaviour
             }
         }
     }
+    public GameObject GetActiveHandObject()
+    {
+        if (currentType == ItemType.NONE) return null;
+
+        foreach (ObjectnType itemHold in itemsToHold)
+        {
+            if (itemHold.type == currentType)
+            {
+                return itemHold.item;
+            }
+        }
+        return null;
+    }
     public ItemType PutItem()
     {
         if (currentType == ItemType.NONE) return ItemType.NONE; 

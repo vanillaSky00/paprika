@@ -6,6 +6,7 @@ public class AgentNearby : MonoBehaviour
     [Header("Config")]
     public float visionRadius = 5.0f;
     public Transform playerTransform; // 記得在 Inspector 拉入玩家
+    public string targetTag = "Interactable";
 
     [Header("References")]
     public Transform agentEyeTransform; // 也可以直接用 transform
@@ -26,8 +27,7 @@ public class AgentNearby : MonoBehaviour
         Collider[] hits = Physics.OverlapSphere(transform.position, visionRadius);
         foreach(var hit in hits)
         {
-            if(hit.CompareTag("Interactable"))
-            {
+            if(hit.CompareTag(targetTag)) {
                 objects.Add(new WorldObjectData
                 {
                     id = hit.name,
