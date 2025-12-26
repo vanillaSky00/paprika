@@ -1,80 +1,144 @@
 using UnityEngine;
+using UnityEngine.AI;
+using System.Collections;
 using System.Collections.Generic;
-using Newtonsoft.Json; // 你的專案有裝這個對吧？
+using Newtonsoft.Json;
 
 [RequireComponent(typeof(AgentMovement))]
 [RequireComponent(typeof(AgentState))]
+[RequireComponent(typeof(NavMeshAgent))]
 public class ActionMove : MonoBehaviour, IAgentAction
 {
-    // 對應 Python 傳來的 function 名稱
     public string ActionName => "move_to";
 
     private AgentMovement agentMovement;
     private AgentState agentState;
+    private NavMeshAgent navAgent;
+    private float moveTimeout = 15f; 
 
     void Awake()
     {
         agentMovement = GetComponent<AgentMovement>();
         agentState = GetComponent<AgentState>();
+        navAgent = GetComponent<NavMeshAgent>();
     }
 
     public void Execute(Dictionary<string, object> args)
     {
-        Vector3 targetPos = Vector3.zero;
+        Vector3 rawTargetPos = Vector3.zero;
         bool hasTarget = false;
+        string targetName = "Unknown";
 
-        // --- 解析座標 (支援兩種格式) ---
+        // --- 模式 A: ID 自動感知 (這是你要的功能！) ---
+        if (args.ContainsKey("id"))
+        {
+            string id = args["id"].ToString();
+            //GameObject targetObj = GameObject.Find(id);
+            GameObject targetObj = SmartObjectFinder.FindBestTarget(id, transform.position);
 
-        // 格式 A: "target": [10, 0, 5] (最常見)
-        if (args.ContainsKey("target"))
+            if (targetObj != null)
+            {
+                Debug.Log($"[ActionMove] 智能鎖定目標: {id} -> {targetObj.name}");
+                // 優先找有沒有設定 "InteractionPoint" (站位點)
+                Transform standPoint = targetObj.transform.Find("InteractionPoint");
+                
+                if (standPoint != null)
+                {
+                    rawTargetPos = standPoint.position;
+                    targetName = $"{id} (StandPoint)";
+                    Debug.Log($"[ActionMove] 感知到物件 '{id}'，使用專屬站位點");
+                }
+                else
+                {
+                    rawTargetPos = targetObj.transform.position;
+                    targetName = id;
+                    Debug.Log($"[ActionMove] 感知到物件 '{id}'，使用中心點");
+                }
+                hasTarget = true;
+            }
+            else
+            {
+                Debug.LogError($"[ActionMove] 找不到物件 ID: {id}，請檢查場景物件名稱！");
+                agentState.ReportActionFinished(false, $"Object '{id}' not found");
+                return;
+            }
+        }
+        // --- 模式 B: 純座標 (保留作為備用) ---
+        else if (args.ContainsKey("target"))
         {
             try 
             {
-                // 把 object 轉回 Json string 再轉 float[]，這是處理弱型別最穩的方法
                 string json = JsonConvert.SerializeObject(args["target"]);
                 float[] pos = JsonConvert.DeserializeObject<float[]>(json);
                 if (pos != null && pos.Length >= 3)
                 {
-                    targetPos = new Vector3(pos[0], pos[1], pos[2]);
+                    rawTargetPos = new Vector3(pos[0], pos[1], pos[2]);
                     hasTarget = true;
                 }
             }
-            catch { Debug.LogError("[ActionMove] 座標解析失敗"); }
-        }
-        // 格式 B: "x": 10, "z": 5 (有時候 LLM 會這樣給)
-        else if (args.ContainsKey("x") && args.ContainsKey("z"))
-        {
-            float x = System.Convert.ToSingle(args["x"]);
-            float z = System.Convert.ToSingle(args["z"]);
-            float y = args.ContainsKey("y") ? System.Convert.ToSingle(args["y"]) : 0;
-            targetPos = new Vector3(x, y, z);
-            hasTarget = true;
+            catch { }
         }
 
-        // --- 執行移動 ---
+        // --- 3. 執行移動邏輯 ---
         if (hasTarget)
         {
-            Debug.Log($"[ActionMove] 前往座標: {targetPos}");
-            agentMovement.MoveTo(targetPos);
-            
-            // 回報狀態
-            agentState.ReportActionFinished(true, $"Moving to {targetPos}");
+            // 自動校正：如果目標點在 Obstacle 內部 (不可走)，找最近的地板
+            NavMeshHit hit;
+            Vector3 finalTarget;
+
+            // 搜尋半徑 2.0f
+            if (NavMesh.SamplePosition(rawTargetPos, out hit, 2.0f, NavMesh.AllAreas))
+            {
+                finalTarget = hit.position;
+            }
+            else
+            {
+                finalTarget = rawTargetPos; // 真的找不到地板只好硬走
+                Debug.LogWarning($"[ActionMove] 警告：{targetName} 附近找不到導航網格！");
+            }
+
+            // 啟動協程等待到達
+            StartCoroutine(WaitUntilArrived(finalTarget));
         }
         else
         {
-            Debug.LogError("[ActionMove] 缺少座標參數 (target 或 x,z)");
-            agentState.ReportActionFinished(false, "Missing coordinates");
+            agentState.ReportActionFinished(false, "Missing 'id' or 'target' argument");
         }
     }
 
-    // --- 右鍵測試 ---
-    [ContextMenu("測試：走到 (-5, 0.51, 3.0)")]
-    public void TestMoveZero()
+    private IEnumerator WaitUntilArrived(Vector3 destination)
     {
-        // 模擬 Python 傳來的參數
-        var args = new Dictionary<string, object> { 
-            { "target", new float[] { -5.0f, 0.51f, 3.0f } } 
-        };
-        Execute(args);
+        // 畫線除錯：紅色是路線
+        Debug.DrawLine(transform.position, destination, Color.red, 2.0f);
+
+        agentMovement.MoveTo(destination);
+        
+        // 重要：給 NavMeshAgent 一點時間計算路徑
+        yield return new WaitForSeconds(0.2f); 
+
+        float timer = 0f;
+        bool hasArrived = false;
+
+        while (timer < moveTimeout)
+        {
+            // 檢查是否到達
+            if (!navAgent.pathPending && (navAgent.remainingDistance <= navAgent.stoppingDistance))
+            {
+                if (!navAgent.hasPath || navAgent.velocity.sqrMagnitude == 0f)
+                {
+                    hasArrived = true;
+                    break;
+                }
+            }
+            timer += Time.deltaTime;
+            yield return null;
+        }
+
+        agentMovement.Stop();
+
+        if (hasArrived)
+            agentState.ReportActionFinished(true, $"Arrived at {destination}");
+        else
+            agentState.ReportActionFinished(false, "Move timeout or stuck");
     }
 }
