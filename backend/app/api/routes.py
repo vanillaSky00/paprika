@@ -95,12 +95,22 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
                 "client_id": client_id,
                 "task": "運送洋蔥 (ID 導航版)",
                 "plan": [
-                    {"thought_trace": "1. 前往洋蔥箱", "function": "move_to", "args": {"id": "OnionBox01"}},
-                    {"thought_trace": "2. 撿起洋蔥", "function": "pickup", "args": {"id": "Onion01"}},
-                    {"thought_trace": "3. 拿著洋蔥前往櫃檯", "function": "move_to", "args": {"id": "Counter01"}},
-                    {"thought_trace": "4. 把洋蔥放在櫃檯上", "function": "put_down", "args": {"id": "Counter01"}}
+                    {"thought_trace": "1. 前往洋蔥箱", "function": "move_to", "args": {"id": "OnionBox"}},
+                    {"thought_trace": "2. 撿起洋蔥", "function": "pickup", "args": {"id": "Onion"}},
+                    {"thought_trace": "3. 拿著洋蔥前往櫃檯", "function": "move_to", "args": {"id": "Plate_agent_"}},
+                    {"thought_trace": "4. 把洋蔥放在櫃檯上", "function": "put_down", "args": {"id": "Plate_agent_"}}
                 ]
             }
+            # response = {
+            #     "client_id": client_id,
+            #     "task": "運送蕃茄到櫃檯 (測試)",
+            #     "plan": [
+            #         {"thought_trace": "1. 前往番茄箱", "function": "move_to", "args": {"id": "TomatoBox"}},
+            #         {"thought_trace": "2. 撿起番茄", "function": "pickup", "args": {"id": "Tomato"}},
+            #         {"thought_trace": "3. 拿著番茄前往櫃檯", "function": "move_to", "args": {"id": "Plate_agent_"}},
+            #         {"thought_trace": "4. 把番茄放在櫃檯上", "function": "put_down", "args": {"id": "Plate_agent_"}}
+            #     ]
+            # }
 
             logger.info(
                     f"👁️ Response to Unity:\n \

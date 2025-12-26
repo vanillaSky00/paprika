@@ -108,13 +108,6 @@ public class AgentNetworkManager : MonoBehaviour
             mode = "reality",
             location_id = agentState.GetLocationId(),
 
-            self_position = new PositionData 
-            {
-                x = agentTransform.position.x,
-                y = agentTransform.position.y,
-                z = agentTransform.position.z
-            },
-
             player_nearby = agentNearby.CheckPlayerNearby(),
             nearby_objects = agentNearby.ScanNearbyObjects(),
             held_item = agentState.GetHeldItem(),
@@ -259,6 +252,54 @@ public class AgentNetworkManager : MonoBehaviour
         // 4. 發送指令
         HandleServerResponse(mockJson);
     }
+    [ContextMenu("測試：模擬 Server 指令 (Mock-Tomato ID版)")]
+    public void TestMockTomatoServerResponse()
+    {
+        // 1. 設定場景物件名稱 (請確認場景裡真的有這些名字的物件)
+        string itemName = "TomatoBox";      // 要拿的東西
+        string tableName = "Plate_agent_1"; // 要放的桌子
+
+        // 2. 防呆檢查 (確保場景有這東西，不然 ActionMove 也會找不到)
+        if (GameObject.Find(itemName) == null || GameObject.Find(tableName) == null)
+        {
+            Debug.LogError($"[Test Error] 找不到物件！請確認場景裡有 '{itemName}' 和 '{tableName}'");
+            return;
+        }
+
+        Debug.Log($"[Test] 啟動番茄搬運測試 (ID模式): {itemName} -> {tableName}");
+
+        // 3. 捏造 JSON 指令 (完全不含座標數字)
+        // 注意：這裡 move_to 的 args 改成用 "id"
+        string mockJson = $@"
+        {{
+            ""task"": ""運送蕃茄到櫃檯 (測試)"",
+            ""plan"": [
+                {{
+                    ""thought_trace"": ""1. 前往番茄箱"",
+                    ""function"": ""move_to"",
+                    ""args"": {{ ""id"": ""{itemName}"" }} 
+                }},
+                {{
+                    ""thought_trace"": ""2. 撿起番茄"",
+                    ""function"": ""pickup"",
+                    ""args"": {{ ""id"": ""{itemName}"" }}
+                }},
+                {{
+                    ""thought_trace"": ""3. 拿著番茄前往櫃檯"",
+                    ""function"": ""move_to"",
+                    ""args"": {{ ""id"": ""{tableName}"" }}
+                }},
+                {{
+                    ""thought_trace"": ""4. 把番茄放在櫃檯上"",
+                    ""function"": ""put_down"",
+                    ""args"": {{ ""id"": ""{tableName}"" }}
+                }}
+            ]
+        }}";
+
+        // 4. 發送指令
+        HandleServerResponse(mockJson);
+    }
 }
 
 // --- Data Classes (DTOs) 對應 Python Schemas ---
@@ -271,7 +312,6 @@ public class PerceptionData
     public string mode; // "reality", "dream"
     public string location_id;
     public bool player_nearby;
-    public PositionData self_position;
 
     public List<WorldObjectData> nearby_objects;
     public string held_item;
