@@ -26,45 +26,62 @@ public class AgentNetworkManager : MonoBehaviour
 
     async void Start()
     {
-        string uuid = System.Guid.NewGuid().ToString();
-        string fullUrl = serverUrl + uuid;
-
-        Debug.Log($"Generated Client ID: {uuid}");
-        Debug.Log($"Connecting to: {fullUrl}");
-
-        websocket = new WebSocket(fullUrl);
-
-        websocket.OnOpen += () => Debug.Log("Connection open!");
-        
-        websocket.OnError += (e) => Debug.LogError("Error: " + e);
-        
-        websocket.OnClose += (e) => Debug.Log("Connection closed!");
-
-        websocket.OnMessage += (bytes) =>
+        try
         {
-            // 收到 Server 回傳的 Plan
-            string message = System.Text.Encoding.UTF8.GetString(bytes);
-            HandleServerResponse(message);
-        };
+            string uuid = System.Guid.NewGuid().ToString();
+            string fullUrl = $"ws://127.0.0.1:8000/api/ws/agent/{uuid}";
 
-        // 啟動連線
-        await websocket.Connect();
-        
-        // 開始發送 Perception 的循環 (例如每 2 秒或是動作執行完後)
-        StartCoroutine(AgentLoopRoutine());
+            Debug.Log($"[AI] Initializing connection to: {fullUrl}");
+            websocket = new WebSocket(fullUrl);
+
+            websocket.OnOpen += () => {
+                Debug.Log("<color=green>[AI] Connection Verified by Unity!</color>");
+                StartCoroutine(AgentLoopRoutine());
+            };
+
+            websocket.OnError += (e) => Debug.LogError($"[AI] Connection Error: {e}");
+            websocket.OnClose += (c) => Debug.LogWarning($"[AI] Connection Closed. Code: {c}");
+
+            websocket.OnMessage += (bytes) =>
+            {
+                // 收到 Server 回傳的 Plan
+                string message = System.Text.Encoding.UTF8.GetString(bytes);
+                HandleServerResponse(message);
+            };
+
+            Debug.Log("[AI] Awaiting Connect...");
+            await websocket.Connect();
+            // 開始發送 Perception 的循環 (例如每 2 秒或是動作執行完後)
+            // StartCoroutine(AgentLoopRoutine());
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"[AI] Critical failure during startup: {e.Message}");
+        }
     }
 
     void Update()
     {
         #if !UNITY_WEBGL || UNITY_EDITOR
-            websocket.DispatchMessageQueue();
+            if (websocket != null) 
+            {
+                websocket.DispatchMessageQueue();
+            }
         #endif
+
+        // Periodic check in console every 60 frames
+        if (Time.frameCount % 60 == 0 && websocket != null)
+        {
+            Debug.Log($"[AI] Current Live State: {websocket.State}");
+        }
     }
 
     private IEnumerator AgentLoopRoutine()
     {
         while (true)
         {
+            Debug.Log($"websocket.State: {websocket.State}");
+            Debug.Log($"isThinking: {isThinking}");
             // 只有在連線開啟且沒有在思考時才傳送
             if (websocket.State == WebSocketState.Open && !isThinking)
             {
