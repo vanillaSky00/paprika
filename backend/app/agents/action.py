@@ -25,6 +25,7 @@ class ActionAgent(BaseAgent):
         *,
         perception: Perception,
         current_task,
+        skill_guide="",
         last_plan="",
         critique="",
     ) -> HumanMessage:
@@ -51,6 +52,17 @@ class ActionAgent(BaseAgent):
         Current Goal: {current_task}
         """
 
+        # Cold(1st) Start and Warm(2nd and later) Start
+        # The ActionAgent doesn’t need pre-stored skills in memory—it can improvise and figure out how to act on the fly.
+        if skill_guide:
+            content += f"""
+            --- SUGGESTED PROCEDURE (MEMORY) ---
+            I have done this task before. Here is the guide:
+            {skill_guide}
+            
+            INSTRUCTION: Follow the guide if it matches the current situation.
+            """
+        
         # Voyager Feedback Loop
         if last_plan and critique:
             content += f"""
@@ -69,6 +81,7 @@ class ActionAgent(BaseAgent):
         *,
         perception: Perception,
         current_task,
+        skill_guide="",
         last_plan="",
         critique="",
     ) -> list[AgentAction]:
@@ -80,6 +93,7 @@ class ActionAgent(BaseAgent):
             user_message=self.render_human_message(
                 perception=perception,
                 current_task=current_task,
+                skill_guide=skill_guide,
                 last_plan=last_plan,
                 critique=critique,
             ).content,

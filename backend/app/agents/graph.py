@@ -88,10 +88,12 @@ async def action_node(state: AgentState):
     
     last_plan = [a.model_dump() for a in state['plan']] if state['plan'] else ""
     critic_text = state['critique'].feedback if state['critique'] else ""
+    skill_guide = state.get("skill_guide", "")
     
     plan = await action_agent.generate_plan(
         perception=state['perception'],
         current_task=state['task'],
+        skill_guide=skill_guide,
         last_plan=last_plan,
         critique=critic_text
     )
@@ -128,6 +130,17 @@ async def learning_node(state: AgentState):
     
     return {}
 
+def entry_router(state: AgentState):
+    """
+    Decide where to start based on if this is "first run" or not from unity?
+    """
+    
+    current_task = state.get("task", "")
+    
+    if not current_task or current_task == "Decide Next Task":
+        return "curriculum"
+    
+    return "critic"
 
 def decide_next_node(state: AgentState):
     """
@@ -155,11 +168,20 @@ workflow.add_node("action", action_node)
 workflow.add_node("critic", critic_node)
 workflow.add_node("learning", learning_node)
 
-workflow.set_entry_point("curriculum")
+
+workflow.set_conditional_entry_point(
+    entry_router,
+    {
+        "curriculum": "curriculum",
+        "critic": "critic"
+    }
+)
 
 workflow.add_edge("curriculum", "skill")
 workflow.add_edge("skill", "action")
-workflow.add_edge("action", "critic")
+
+# Action goes to END (stops Python), so Unity can run the plan.
+workflow.add_edge("action", END)
 
 workflow.add_conditional_edges(
     "critic",
