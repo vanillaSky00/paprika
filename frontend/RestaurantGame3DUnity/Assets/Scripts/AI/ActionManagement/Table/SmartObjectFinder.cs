@@ -1,69 +1,117 @@
 using UnityEngine;
-using System.Linq; // 記得引用這個來做排序
+using System.Linq;
 
 public static class SmartObjectFinder
 {
-    // 傳入 "PrepTable"，回傳 "PrepTable_3" (最近且空的那個)
+    /// <summary>
+    /// 尋找最近且未被佔用的目標物件 (支援模糊搜尋與佔用檢查)
+    /// </summary>
+    /// <param name="categoryId">物件名稱或類別前綴 (如 "PrepTable")</param>
+    /// <param name="agentPos">Agent 當前位置</param>
+    /// <returns>最佳目標物件，如果全滿則回傳 null</returns>
     public static GameObject FindBestTarget(string categoryId, Vector3 agentPos)
     {
-        // 1. 先嘗試直接找 (如果 LLM 真的傳了 "PrepTable_1"，就直接用)
+        // 1. 先嘗試直接找 (如果指令指名道姓要去 "PrepTable_1")
         GameObject directObj = GameObject.Find(categoryId);
-        if (directObj != null) return directObj;
+        if (directObj != null) 
+        {
+            // 如果指名的桌子滿了，我們還是回傳它嗎？
+            // 通常指名道姓代表強制，但如果你希望它自動換桌，可以把下面這行打開：
+            // if (IsTableOccupied(directObj.transform)) { /* 繼續往下找備案 */ }
+            return directObj;
+        }
 
-        // 2. 找不到完全符合的，就找所有名稱包含該字串的物件
-        // (效能優化提示：如果物件很多，建議改用 Tag 搜尋)
+        // 2. 模糊搜尋：找出所有名稱以 categoryId 開頭的物件
         var candidates = GameObject.FindObjectsOfType<GameObject>()
             .Where(obj => obj.name.StartsWith(categoryId)) 
+            .OrderBy(obj => Vector3.Distance(agentPos, obj.transform.position)) // 先按距離排序 (最近的優先)
             .ToList();
 
-        if (candidates.Count == 0) return null;
+        if (candidates.Count == 0) 
+        {
+            Debug.LogWarning($"[SmartFinder] 找不到任何名稱以 '{categoryId}' 開頭的物件");
+            return null;
+        }
 
-        Debug.Log($"[SmartFinder] 找到 {candidates.Count} 個 '{categoryId}' 類型的候選物件");
-
-        // 3. 篩選與排序
-        GameObject bestTarget = null;
-        float closestDist = float.MaxValue;
+        Debug.Log($"[SmartFinder] 🔍 開始掃描 {candidates.Count} 個 '{categoryId}' 候選物件...");
 
         foreach (var obj in candidates)
         {
-            // --- 檢查桌子是否已經有東西 (防呆) ---
-            // 假設你的邏輯是：桌子上有東西就會被放到 InteractionPoint 底下
-            // 或者用 Physics.CheckSphere 檢查桌面上方有沒有 Collider
+            float dist = Vector3.Distance(agentPos, obj.transform.position);
+
+            // 檢查是否被佔用
             if (IsTableOccupied(obj.transform)) 
             {
-                continue; // 這張桌子滿了，跳過
+                Debug.Log($"❌ [跳過] {obj.name} (距離: {dist:F1}m) -> 判定為【已佔用】");
+                continue; // 這張滿了，找下一張
             }
 
-            float d = Vector3.Distance(agentPos, obj.transform.position);
-            if (d < closestDist)
-            {
-                closestDist = d;
-                bestTarget = obj;
-            }
+            // 找到第一個「最近」且「空」的，直接回傳
+            Debug.Log($"✅ [鎖定] {obj.name} (距離: {dist:F1}m) -> 判定為【空閒】");
+            return obj;
         }
 
-        return bestTarget;
+        Debug.LogWarning($"⚠️ [SmartFinder] 所有 '{categoryId}' 類型的桌子都滿了！");
+        return null;
     }
 
-    // 檢查桌子是否被佔用
+    /// <summary>
+    /// 檢查桌子是否被佔用 (支援 ItemHolder 結構與物理偵測)
+    /// </summary>
     private static bool IsTableOccupied(Transform table)
     {
-        // 方法 A: 檢查是否有子物件 (如果你放東西是透過 SetParent)
-        // 假設桌子有一個子物件叫 "InteractionPoint"，東西都放在那
-        Transform point = table.Find("InteractionPoint");
-        if (point != null && point.childCount > 0) return true;
+        // --- 策略 A: ItemHolder 結構檢查 (最準確，針對你的截圖) ---
+        Transform itemHolder = table.Find("ItemHolder");
+        if (itemHolder != null)
+        {
+            // 遍歷 ItemHolder 底下所有預設食材 (Meatball, Tomato...)
+            foreach(Transform child in itemHolder)
+            {
+                // 只要有任何一個子物件是 "Active" (開啟的)，就代表桌上有東西
+                if (child.gameObject.activeSelf) 
+                {
+                    // Debug.Log($"[SmartFinder] {table.name} 滿了 (發現開啟的 {child.name})");
+                    return true; 
+                }
+            }
+            
+            // 如果找到了 ItemHolder，但裡面所有食材都是關閉的 (inactive)，那就是空的
+            return false; 
+        }
 
-        // 方法 B: 物理偵測 (更通用)
-        // 在桌子上方 0.5 公尺處，畫一個半徑 0.3 的球，看有沒有撞到東西
-        // 注意：要避開桌子本身的 Layer，不然會掃到自己
-        Vector3 checkPos = table.position + Vector3.up * 0.5f; 
-        Collider[] hits = Physics.OverlapSphere(checkPos, 0.3f);
+        // --- 策略 B: InteractionPoint 結構檢查 (相容舊版結構) ---
+        Transform point = table.Find("InteractionPoint");
+        if (point != null)
+        {
+            // 如果是用 Instantiate 生成子物件的方式，檢查 childCount
+            if (point.childCount > 0) return true;
+        }
+
+        // --- 策略 C: 物理射線偵測 (最後防線) ---
+        // 當上述兩種結構都找不到時，用物理碰撞檢查
+        Vector3 checkPos = table.position + Vector3.up * 0.6f; // 偵測高度 (請依桌子高度調整)
+        float radius = 0.4f; // 偵測半徑
+
+        // 畫出除錯線 (Scene 視窗可見紅色十字)
+        Debug.DrawLine(checkPos - Vector3.right * radius, checkPos + Vector3.right * radius, Color.red, 1.0f);
+        Debug.DrawLine(checkPos - Vector3.forward * radius, checkPos + Vector3.forward * radius, Color.red, 1.0f);
+
+        Collider[] hits = Physics.OverlapSphere(checkPos, radius);
         
-        // 如果掃到任何不是 "Agent" 的東西，就當作被佔用
         foreach(var hit in hits)
         {
-            if(hit.gameObject != table.gameObject && !hit.CompareTag("Player")) 
+            GameObject hitObj = hit.gameObject;
+
+            // 排除清單：
+            // 1. 桌子自己
+            // 2. 桌子的子物件 (如果是模型的一部分)
+            // 3. 玩家 (Player) 或 Agent
+            if (hitObj != table.gameObject && 
+                !hit.transform.IsChildOf(table) &&
+                !hitObj.CompareTag("Player") && 
+                !hitObj.CompareTag("Agent")) 
             {
+                Debug.Log($"❗ {table.name} 被物理偵測判定佔用 (撞到: {hitObj.name})");
                 return true; 
             }
         }

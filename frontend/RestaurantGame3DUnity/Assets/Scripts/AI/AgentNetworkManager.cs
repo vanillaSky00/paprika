@@ -165,24 +165,41 @@ public class AgentNetworkManager : MonoBehaviour
     {
         foreach (var action in plan)
         {
-            Debug.Log($"[Agent] is running: {action.function} ({action.thought_trace})");
+            Debug.Log($"[Agent] 開始執行步驟: {action.function} ({action.thought_trace})");
             
-            // 1. 執行動作
+            // 1. 在執行前，先舉起旗標「我正在忙」
+            // 這樣不管是 Move (非同步) 還是 Put (同步)，Manager 都不會馬上往下跑
+            agentState.IsActionExecuting = true;
+
+            // 2. 發送指令給 ActionMove / ActionPut
             actionDispatcher.DispatchAction(action.function, action.args);
             
-            // 2. 等待動作完成
-            // 簡單做法：每個動作給它 3 秒鐘 (移動可能需要比較久)
-            // 進階做法：以後可以改寫成等待 Action 回傳 callback
-            yield return new WaitForSeconds(3.0f); 
+            // 3. 智能等待：只要 Agent 還在忙 (IsActionExecuting == true)，就一直等
+            // 設定一個超時保險 (例如 30秒)，避免如果出 Bug 卡死一輩子
+            float timeout = 30f; 
+            float timer = 0f;
+
+            while (agentState.IsActionExecuting && timer < timeout)
+            {
+                yield return null; // 等待下一幀 (不會卡住 Unity)
+                timer += Time.deltaTime;
+            }
+
+            // 如果是因為超時才跳出來的，印個警告
+            if (timer >= timeout) 
+            {
+                Debug.LogWarning($"[Agent] 警告：動作 {action.function} 執行超過 {timeout} 秒，強制跳到下一步！");
+                agentState.IsActionExecuting = false; // 強制重置
+            }
+
+            // 4. 動作之間的小緩衝 (讓動作看起來不那麼僵硬)
+            yield return new WaitForSeconds(0.5f); 
         }
 
-        Debug.Log("[Agent] Task Finished！");
+        Debug.Log("[Agent] 所有計畫執行完畢！(Task Finished)");
         
-        // 全部做完後，才允許 AI 再次看環境思考
         isThinking = false; 
-        
-        // 可以選擇做完馬上再看一次環境
-        // SendPerception(); 
+        // SendPerception(); // 如果需要連續思考可以打開
     }
     private async void OnApplicationQuit()
     {
@@ -198,12 +215,12 @@ public class AgentNetworkManager : MonoBehaviour
     {
         // 1. 設定場景物件名稱
         string itemName = "OnionBox";       // 要拿的
-        string tableName = "Plate_agent_2"; // 要放的
+        string tableName = "Preparation"; // 要放的
 
         // 2. 防呆檢查 (只是為了確保場景沒壞，不需要取座標了)
-        if (GameObject.Find(itemName) == null || GameObject.Find(tableName) == null)
+        if (GameObject.Find(itemName) == null)
         {
-            Debug.LogError($"[Test Error] 找不到物件！請確認場景裡有 '{itemName}' 和 '{tableName}'");
+            Debug.LogError($"[Test Error] 找不到 '{itemName}'！請檢查場景物件名稱");
             return;
         }
 
@@ -246,12 +263,12 @@ public class AgentNetworkManager : MonoBehaviour
     {
         // 1. 設定場景物件名稱 (請確認場景裡真的有這些名字的物件)
         string itemName = "TomatoBox";      // 要拿的東西
-        string tableName = "Plate_agent_1"; // 要放的桌子
+        string tableName = "Preparation"; // 要放的桌子
 
         // 2. 防呆檢查 (確保場景有這東西，不然 ActionMove 也會找不到)
-        if (GameObject.Find(itemName) == null || GameObject.Find(tableName) == null)
+        if (GameObject.Find(itemName) == null)
         {
-            Debug.LogError($"[Test Error] 找不到物件！請確認場景裡有 '{itemName}' 和 '{tableName}'");
+            Debug.LogError($"[Test Error] 找不到 '{itemName}'！請檢查場景物件名稱");
             return;
         }
 
