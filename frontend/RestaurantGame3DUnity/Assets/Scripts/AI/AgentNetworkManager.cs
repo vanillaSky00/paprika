@@ -118,7 +118,7 @@ public class AgentNetworkManager : MonoBehaviour
             
             // Important: Report execution result of the last action
             last_action_status = status,
-            last_action_error = error
+            last_action_error = (status == "success") ? "" : error
         };
         
         //Debug.Log($"[Sending] Location: {perception.location_id}");
@@ -229,6 +229,7 @@ public class AgentNetworkManager : MonoBehaviour
     {
         StopAllCoroutines();
     }
+    // perception data
     [ContextMenu("Debug: Print Current Perception")]
     public void DebugPrintCurrentPerception()
     {
@@ -252,7 +253,7 @@ public class AgentNetworkManager : MonoBehaviour
         string json = JsonConvert.SerializeObject(perception, Formatting.Indented);
         Debug.Log($"<color=yellow>[Debug Check] Current Perception State:</color>\n{json}");
     }
-
+    // action
     [ContextMenu("Test: Chop Onion -> Put on Plate")]
     public void TestMockChopOnion_Final()
     {
