@@ -110,8 +110,8 @@ public class AgentNetworkManager : MonoBehaviour
             time_hour = System.DateTime.Now.Hour, // Or in-game time
             day = 1, // Game days
             mode = "reality",
-            location_id = agentState.GetLocationId(),
-
+            //location_id = agentState.GetLocationId(),
+            location_id = "kitchen",
             player_nearby = agentNearby.CheckPlayerNearby(),
             nearby_objects = agentNearby.ScanNearbyObjects(),
             held_item = agentState.GetHeldItem(),
