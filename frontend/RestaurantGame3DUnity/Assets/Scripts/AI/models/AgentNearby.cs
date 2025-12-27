@@ -32,11 +32,6 @@ public class AgentNearby : MonoBehaviour
                 {
                     id = hit.name,
                     type = "Prop", // 可根據 Tag 或 Component 進一步細分
-                    position = new PositionData { 
-                        x = hit.transform.position.x, 
-                        y = hit.transform.position.y, 
-                        z = hit.transform.position.z 
-                    },
                     distance = Vector3.Distance(transform.position, hit.transform.position),
                     state = "default"
                 });
