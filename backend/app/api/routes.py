@@ -50,7 +50,7 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
             
             try:
                 perception = Perception(**data)
-                logger.info(
+                logger.warning(
                     f"👁️ Perception:\n \
                     time_hour: {perception.time_hour}\n \
                     day: {perception.day}\n \
@@ -85,14 +85,12 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
                 "task": task_name,
                 "plan": plan_json
             }
-            logger.info(
+            logger.warning(
                     f"👁️ Response to Unity:\n \
                     client_id: {response['client_id']}\n \
                     task: {response['task']}\n \
                     plan: {response['plan']}\n")
             await manager.send_personal_message(response, websocket)
-            
-            
             
             
             # response1 = {

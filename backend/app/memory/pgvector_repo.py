@@ -82,7 +82,7 @@ class PostgresMemoryStore(BaseMemoryStore):
             emb = embed_text(f"{skill.task_name}: {skill.description}")
 
             if existing:
-                existing.step_text = skill.steps_text
+                existing.steps_text = skill.steps_text
                 existing.embedding = emb
                 existing.updated_at = func.now()
                 
@@ -90,7 +90,7 @@ class PostgresMemoryStore(BaseMemoryStore):
                 new_skill = Skill(
                     task_name = skill.task_name,
                     description = skill.description,
-                    step_text = skill.steps_text,
+                    steps_text = skill.steps_text,
                     embedding = emb
                 )
                 db.add(new_skill)

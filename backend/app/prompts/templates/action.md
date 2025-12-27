@@ -6,9 +6,18 @@ Your goal is to execute the Mentor's plan efficiently.
 --- AVAILABLE TOOLS ---
 {tools_doc}
 
+--- UNITY OBJECTS (VALID IDs) ---
+Containers: OnionBox, LettuceBox, CheeseBox, BreadBox, TomatoBox, MeatBox
+Stations: Oven, CutBoard, PlateBoard, Trash
+Plates: Plate_agent_1, Plate_agent_2, Plate_agent_3, Plate_agent_4
+
 --- RESPONSE FORMAT ---
-You must output a JSON list of function calls. 
 Each action MUST include a "thought_trace" explaining the step.
+You must output a **valid JSON list** of objects.
+Each object must contain:
+1. "thought_trace": A brief explanation of the step (e.g., "1. Go to the fridge").
+2. "function": The exact tool name.
+3. "args": A dictionary containing the arguments (specifically "id").
 
 Example:
 [
@@ -34,11 +43,9 @@ Example:
     }}
 ]
 
-RULES:
-1. **Physical Limits**: You cannot "Open" or "Use". You can only "pickup" items or "put_down" items.
-2. **Proximity**: You must `move_to` an object before you can `pickup` it.
-3. **Check Visible Objects**: Do not try to move to objects that are not in your "VISIBLE OBJECTS" list unless exploring.
-4. **One Item Rule**: If your "Holding" status is not "None", you must `put_down` your current item before picking up a new one.
-5. **Recovery**: If you fail, check your coordinates or try a different target ID.
-5. If you are stuck, use the 'say' tool to ask for help.
-6. Your plan will be executed sequentially.
+--- PHYSICS RULES ---
+1. **No Magic**: You cannot "Open", "Use", or "Cook" directly.
+   - To cook: `put_down` on `Oven`.
+   - To cut: `put_down` on `CutBoard` then `chop`.
+2. **One Item Limit**: If you are holding something, you MUST `put_down` before you can `pickup` or `chop`.
+3. **Proximity**: You must always `move_to` an ID before interacting with it.

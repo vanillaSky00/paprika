@@ -110,7 +110,7 @@ class AgentAction(BaseModel):
     )  # e.g., {"target_id": "Stove_01"} or {"text": "Hi!"}
 
     # Meta-data for the Agent (Did this finish the goal?)
-    plan_complete: bool = False
+    # plan_complete: bool = False
 
 
 class CriticOutput(BaseModel):
@@ -123,4 +123,3 @@ class CurriculumOutput(BaseModel):
     task: str = Field(description="The concise task name, e.g., 'Cook the raw meat'.")
     reasoning: str = Field(description="Why this task is the logical next step.")
     difficulty: int = Field(description="Estimated difficulty (1-10).")
-    

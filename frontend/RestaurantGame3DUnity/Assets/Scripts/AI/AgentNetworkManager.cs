@@ -39,6 +39,7 @@ public class AgentNetworkManager : MonoBehaviour
 
             websocket.OnOpen += () => {
                 Debug.Log("<color=green>[AI] Connection Verified by Unity!</color>");
+                SendPerception();
                 StartCoroutine(AgentLoopRoutine());
             };
 
@@ -73,18 +74,18 @@ public class AgentNetworkManager : MonoBehaviour
         #endif
 
         // Periodic check in console every 60 frames
-        if (Time.frameCount % 60 == 0 && websocket != null)
-        {
-            Debug.Log($"[AI] Current Live State: {websocket.State}");
-        }
+        // if (Time.frameCount % 60 == 0 && websocket != null)
+        // {
+        //     Debug.Log($"[AI] Current Live State: {websocket.State}");
+        // }
     }
 
     private IEnumerator AgentLoopRoutine()
     {
         while (true)
         {
-            Debug.Log($"websocket.State: {websocket.State}");
-            Debug.Log($"isThinking: {isThinking}");
+            // Debug.Log($"websocket.State: {websocket.State}");
+            // Debug.Log($"isThinking: {isThinking}");
             // 只有在連線開啟且沒有在思考時才傳送
             if (websocket.State == WebSocketState.Open && !isThinking)
             {
