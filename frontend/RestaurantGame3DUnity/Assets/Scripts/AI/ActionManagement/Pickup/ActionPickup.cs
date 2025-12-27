@@ -1,19 +1,16 @@
 using UnityEngine;
 using System.Collections.Generic;
 
-// 必須依賴 Inventory 和 AgentState
 [RequireComponent(typeof(Inventory))]
 [RequireComponent(typeof(AgentState))]
 public class ActionPickup : MonoBehaviour, IAgentAction
 {
-    // 對應 Server 傳來的 function 名稱
     public string ActionName => "pickup";
 
     private Inventory inventory;
     private AgentState agentState;
     
-    // 設定最大互動距離 (例如 2.5 公尺)
-    [SerializeField] private float interactDistance = 2.0f;
+    [SerializeField] private float interactDistance = 2.5f;
 
     void Awake()
     {
@@ -23,88 +20,97 @@ public class ActionPickup : MonoBehaviour, IAgentAction
 
     public void Execute(Dictionary<string, object> args)
     {
-        // 1. 解析目標名稱 (Server 應該傳來 {"name": "Hamburger"} 或 {"id": "Hamburger"})
+        // 1. 參數檢查
         string targetName = "";
         if (args.ContainsKey("name")) targetName = args["name"].ToString();
         else if (args.ContainsKey("id")) targetName = args["id"].ToString();
 
         if (string.IsNullOrEmpty(targetName))
         {
-            ReportError("沒有指定要撿什麼東西 (缺少 name 參數)");
+            agentState.ReportActionFinished(false, "Missing 'id' or 'name'");
             return;
         }
 
-        // 2. 在場景中尋找該物件
-        // (為了簡單起見，我們先用 Find，之後可以改用 AgentPerception 的快取清單)
-        GameObject targetObj = GameObject.Find(targetName);
+        // 2. 尋找物件
+        GameObject targetObj = SmartObjectFinder.FindBestTarget(targetName, transform.position);
+        if (targetObj == null) targetObj = GameObject.Find(targetName); // 備案
 
         if (targetObj == null)
         {
-            ReportError($"找不到名為 '{targetName}' 的物件");
+            agentState.ReportActionFinished(false, $"Object '{targetName}' not found");
             return;
         }
 
-        // 3. 檢查距離 (模擬 ActionController 的 Raycast 距離限制)
-        float dist = 0f;
-    
-        // 1. 嘗試抓取目標的碰撞器 (Collider)
-        Collider targetCol = targetObj.GetComponent<Collider>();
+        // 3. 距離檢查
+        float dist = Vector3.Distance(transform.position, targetObj.transform.position);
+        if (dist > interactDistance)
+        {
+            agentState.ReportActionFinished(false, $"Too far from {targetName} ({dist:F1}m)");
+            return;
+        }
+
+        // 4. 執行撿取 (邏輯核心)
         
-        if (targetCol != null)
-        {
-            // 關鍵魔法：找出目標表面離我最近的那個點
-            Vector3 closestPoint = targetCol.ClosestPoint(transform.position);
-            dist = Vector3.Distance(transform.position, closestPoint);
-        }
-        else
-        {
-            // 如果目標沒有 Collider，只好算中心點 (退步做法)
-            dist = Vector3.Distance(transform.position, targetObj.transform.position);
-        }
-
-        // --- 這樣你的 interactDistance 只要設 1.5 甚至 1.0 就夠了！ ---
-        if (dist > interactDistance) 
-        {
-            string errorMsg = $"目標太遠了 (邊緣距離: {dist:F1}m)，請先靠近";
-            Debug.LogWarning($"[ActionPut] {errorMsg}");
-            agentState.ReportActionFinished(false, errorMsg);
-            return;
-        }
-        // 4. 執行撿取邏輯 (整合原本的 Inventory 系統)
-        // 檢查目標有沒有 ItemBox 元件 (這是你原本 ActionController 裡的判斷邏輯)
+        // --- 情況 A: 從食材箱 (ItemBox) 拿取 ---
         if (targetObj.TryGetComponent<ItemBox>(out ItemBox itemBox))
         {
-            // A. 從 ItemBox 拿到物品類型 (ItemType)
             ItemType itemType = itemBox.GetItem();
 
-            // B. 呼叫 Inventory 執行撿取
+            // 關鍵修正：檢查箱子給的東西是不是 NONE
+            if (itemType == ItemType.NONE)
+            {
+                string msg = $"[ActionPickup] 失敗：{targetName} (ItemBox) 裡沒有東西，或者還在冷卻中！";
+                Debug.LogWarning(msg);
+                agentState.ReportActionFinished(false, msg);
+                return;
+            }
+
             inventory.TakeItem(itemType);
+            
+            // 雙重檢查：確認 Inventory 真的拿到了
+            if (inventory.CurrentType == ItemType.NONE)
+            {
+                 agentState.ReportActionFinished(false, "Inventory failed to take item (Hand might be full?)");
+                 return;
+            }
 
-            // C. 成功回報
-            Debug.Log($"[ActionPickup] 成功撿起: {targetName} (類型: {itemType})");
-            agentState.SetHeldItem(targetName); // 更新 AI 的記憶
-            agentState.ReportActionFinished(true, $"Picked up {targetName}");
+            Debug.Log($"[ActionPickup] 成功從箱子撿起: {itemType}");
+            agentState.SetHeldItem(itemType.ToString());
+            agentState.ReportActionFinished(true, $"Picked up {itemType}");
+        }
+        // --- 情況 B: 從砧板 (SliceBoard) 拿取 ---
+        else if (targetObj.TryGetComponent<SliceBoard>(out SliceBoard board))
+        {   
 
-            // D. 處理場景上的物件
-            // 注意：Inventory.TakeItem 只是顯示手上的東西，場景地板上的東西通常要隱藏或銷毀
-            // 如果 ItemBox 腳本裡沒有處理銷毀，我們要在這裡處理
-            //targetObj.SetActive(false); 
+            if (board.CurrentType == ItemType.NONE)
+            {
+                agentState.ReportActionFinished(false, $"The board {targetName} is empty!");
+                return;
+            }
+
+            ItemType itemOnBoard = board.CurrentType;
+            inventory.TakeItem(itemOnBoard);
+            
+            board.ClearObject(); // 拿走後要清空砧板
+
+            Debug.Log($"[ActionPickup] 成功從砧板拿走: {itemOnBoard}");
+            agentState.SetHeldItem(itemOnBoard.ToString());
+            agentState.ReportActionFinished(true, $"Picked up {itemOnBoard}");
         }
         else
         {
-            ReportError($"物件 '{targetName}' 上面沒有 ItemBox 元件，無法撿取！");
-        }
-    }
+            // 嘗試找子物件 (以防腳本掛在子層級)
+            var childBox = targetObj.GetComponentInChildren<ItemBox>();
+            if(childBox != null)
+            {
+                 // 這裡簡化處理，直接遞迴調用或報錯提示
+                 agentState.ReportActionFinished(false, $"Found ItemBox on child of {targetName}, logic needs refinement.");
+                 return;
+            }
 
-    private void ReportError(string errorMsg)
-    {
-        Debug.LogError($"[ActionPickup] 失敗: {errorMsg}");
-        agentState.ReportActionFinished(false, errorMsg);
-    }
-    [ContextMenu("測試：撿起 Hamburger")]
-    public void TestPickup()
-    {
-        var args = new Dictionary<string, object> { { "name", "BreadBox" } };
-        Execute(args);
+            string error = $"物件 '{targetName}' 上沒有 ItemBox 或 SliceBoard 元件，無法撿取！";
+            Debug.LogError($"[ActionPickup] {error}");
+            agentState.ReportActionFinished(false, error);
+        }
     }
 }

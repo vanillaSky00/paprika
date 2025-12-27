@@ -6,6 +6,7 @@ public class SliceBoard : Functionality,IPutItemFull
 {
     [SerializeField] private List<ObjectnType> itemsToHold = new List<ObjectnType>();
     private ItemType currentType; 
+    public ItemType CurrentType => currentType;
     private void Start()
     {
         currentType = ItemType.NONE;
@@ -65,17 +66,31 @@ public class SliceBoard : Functionality,IPutItemFull
                 itemHold.item.SetActive(true);
             }
         }
+        this.currentType = item;
         return true;
     } 
     private bool FilterItem(ItemType type)
     { 
         switch (type)
         {
+            // --- 原料 (原本就有的) ---
             case ItemType.TOMATO:
             case ItemType.LETTUCE:
             case ItemType.ONION:
             case ItemType.CHEESE:
-            case ItemType.BREAD: return true;
+            case ItemType.BREAD:
+            case ItemType.MEATBALL: // 如果有的話
+
+            // --- 必須補上這些！不然切完放不回去！ ---
+            case ItemType.SLICEDTOM:
+            case ItemType.SLICEDLET:
+            case ItemType.SLICEDON:
+            case ItemType.SLICEDCHE:
+            case ItemType.SLICEDBREAD:
+            case ItemType.COOKEDMEAT: // 如果有熟肉的話
+            case ItemType.HAMBURGER:  // 如果會在桌上組裝的話
+                return true;
+
             default:
                 return false; 
         } 
