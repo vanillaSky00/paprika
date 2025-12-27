@@ -385,12 +385,12 @@ public class AgentNetworkManager : MonoBehaviour
 
         HandleServerResponse(mockJson);
     }
-    [ContextMenu("Test: Simulate Server Command (Mock-Tomato ID Version)")]
+    [ContextMenu("Test: Simulate Server Command (Mock-Plate)")]
     public void TestMockTomatoServerResponse()
     {
         // 1. Set scene object names (Confirm objects with these names exist)
-        string itemName = "MeatBox";      // Item to take
-        string tableName = "";
+        string itemName = "PlateBoard";      // Item to take
+        string tableName = "Preparation";
 
         // 2. Safety check (Ensure object exists, otherwise ActionMove won't find it)
         if (GameObject.Find(itemName) == null)
@@ -408,22 +408,22 @@ public class AgentNetworkManager : MonoBehaviour
             ""task"": ""Deliver tomato to counter (Test)"",
             ""plan"": [
                 {{
-                    ""thought_trace"": ""1. Go to Tomato Box"",
+                    ""thought_trace"": ""1. Go to PlateBoard"",
                     ""function"": ""move_to"",
                     ""args"": {{ ""id"": ""{itemName}"" }} 
                 }},
                 {{
-                    ""thought_trace"": ""2. Pickup Tomato"",
+                    ""thought_trace"": ""2. Pickup Plate"",
                     ""function"": ""pickup"",
                     ""args"": {{ ""id"": ""{itemName}"" }}
                 }},
                 {{
-                    ""thought_trace"": ""3. Go to counter with tomato"",
+                    ""thought_trace"": ""3. Go to counter with Plate"",
                     ""function"": ""move_to"",
                     ""args"": {{ ""id"": ""{tableName}"" }}
                 }},
                 {{
-                    ""thought_trace"": ""4. Put tomato on counter"",
+                    ""thought_trace"": ""4. Put Plate on counter"",
                     ""function"": ""put_down"",
                     ""args"": {{ ""id"": ""{tableName}"" }}
                 }}
