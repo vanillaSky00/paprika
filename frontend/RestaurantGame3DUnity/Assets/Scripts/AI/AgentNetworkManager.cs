@@ -142,7 +142,7 @@ public class AgentNetworkManager : MonoBehaviour
                 {
                     id = hit.name, // e.g., "Stove_01"
                     type = "Prop",
-                    position = new PositionData { x = hit.transform.position.x, y = hit.transform.position.y, z = hit.transform.position.z },
+                    //position = new PositionData { x = hit.transform.position.x, y = hit.transform.position.y, z = hit.transform.position.z },
                     distance = Vector3.Distance(agentTransform.position, hit.transform.position),
                     state = "default"
                 });
@@ -457,16 +457,16 @@ public class WorldObjectData
 {
     public string id;
     public string type;
-    public PositionData position;
+    //public PositionData position;
     public float distance;
     public string state;
 }
 
-[Serializable]
+/*[Serializable]
 public class PositionData
 {
     public float x, y, z;
-}
+}*/
 
 [Serializable]
 public class ServerResponse
