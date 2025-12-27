@@ -3,16 +3,19 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Newtonsoft.Json;
-using NativeWebSocket; // 需安裝 NativeWebSocket 套件
+using NativeWebSocket; // Requires NativeWebSocket package installed
 
 public class AgentNetworkManager : MonoBehaviour
 {
+    [Header("UI Integration (Optional)")] 
+    public AgentThoughtBubble headBubble;  // Bubble above the head
+
     [Header("Components")]
-    public AgentState agentState;           // 需在 Inspector 綁定
-    public AgentNearby agentNearby;         // 需在 Inspector 綁定
+    public AgentState agentState;           // Must be bound in Inspector
+    public AgentNearby agentNearby;         // Must be bound in Inspector
 
     [Header("Actions")]
-    public ActionDispatcher actionDispatcher;   // 需在 Inspector 綁定
+    public ActionDispatcher actionDispatcher;   // Must be bound in Inspector
 
     [Header("Connection Config")]
     // public string serverUrl = "ws://localhost:8000/api/ws/agent/player_1";
@@ -21,11 +24,11 @@ public class AgentNetworkManager : MonoBehaviour
 
     [Header("Game State References")]
     public Transform agentTransform;
-    // 這裡建議放一個負責執行動作的腳本參考，例如:
+    // Suggest putting a script reference for action execution here, e.g.:
     // public ActionController actionController; 
 
     private WebSocket websocket;
-    private bool isThinking = false; // 避免在 AI 還在思考時重複發送請求
+    private bool isThinking = false; // Prevent sending duplicate requests while AI is still thinking
 
     async void Start()
     {
@@ -33,28 +36,34 @@ public class AgentNetworkManager : MonoBehaviour
         {
             string uuid = System.Guid.NewGuid().ToString();
             string fullUrl = $"ws://127.0.0.1:8000/api/ws/agent/{uuid}";
-
+            
+            headBubble?.ShowThought("Connecting...");
             Debug.Log($"[AI] Initializing connection to: {fullUrl}");
+            
             websocket = new WebSocket(fullUrl);
 
             websocket.OnOpen += () => {
                 Debug.Log("<color=green>[AI] Connection Verified by Unity!</color>");
+                headBubble?.ShowThought("Connected!");
                 StartCoroutine(AgentLoopRoutine());
             };
 
-            websocket.OnError += (e) => Debug.LogError($"[AI] Connection Error: {e}");
+            websocket.OnError += (e) => {
+                Debug.LogError($"[AI] Connection Error: {e}");
+                headBubble?.ShowThought("Connection Failed :(");
+            };
             websocket.OnClose += (c) => Debug.LogWarning($"[AI] Connection Closed. Code: {c}");
 
             websocket.OnMessage += (bytes) =>
             {
-                // 收到 Server 回傳的 Plan
+                // Receive Plan returned from Server
                 string message = System.Text.Encoding.UTF8.GetString(bytes);
                 HandleServerResponse(message);
             };
 
             Debug.Log("[AI] Awaiting Connect...");
             await websocket.Connect();
-            // 開始發送 Perception 的循環 (例如每 2 秒或是動作執行完後)
+            // Start Perception loop (e.g., every 2 seconds or after action completion)
             StartCoroutine(AgentLoopRoutine());
         }
         catch (System.Exception e)
@@ -74,26 +83,32 @@ public class AgentNetworkManager : MonoBehaviour
     {
         while (true)
         {
-            // 只有在連線開啟且沒有在思考時才傳送
+            // Only send when connection is open and not thinking
             if (websocket.State == WebSocketState.Open && !isThinking)
             {
                 SendPerception();
             }
-            // maybe dynamic freqency, for different work
-            yield return new WaitForSeconds(1.0f); // 調整頻率
+            // maybe dynamic frequency, for different work
+            yield return new WaitForSeconds(1.0f); // Adjust frequency
         }
     }
 
+    void HideBubbleDelay()
+    {
+        headBubble?.HideBubble();
+    }
     async void SendPerception()
     {
         isThinking = true;
 
+        headBubble?.ShowThought("(Thinking) Hmm...");
+
         agentState.GetLastActionStatus(out string status, out string error);
-        // 1. 收集場景資訊 (這裡要對應 Python 的 Perception Schema)
+        // 1. Collect scene info (Match this with Python Perception Schema)
         var perception = new PerceptionData
         {
-            time_hour = System.DateTime.Now.Hour, // 或遊戲內時間
-            day = 1, // 遊戲天數
+            time_hour = System.DateTime.Now.Hour, // Or in-game time
+            day = 1, // Game days
             mode = "reality",
             location_id = agentState.GetLocationId(),
 
@@ -101,22 +116,23 @@ public class AgentNetworkManager : MonoBehaviour
             nearby_objects = agentNearby.ScanNearbyObjects(),
             held_item = agentState.GetHeldItem(),
             
-            // 重要：回報上一個動作的執行結果
+            // Important: Report execution result of the last action
             last_action_status = status,
             last_action_error = error
         };
-        //Debug.Log($"[準備傳送] 地點: {perception.location_id}");
+        
+        //Debug.Log($"[Sending] Location: {perception.location_id}");
         string json = JsonConvert.SerializeObject(perception);
         await websocket.SendText(json);
     }
 
     private List<WorldObjectData> ScanNearbyObjects()
     {
-        // 範例：搜尋半徑內的物件
+        // Example: Search objects within radius
         List<WorldObjectData> objects = new List<WorldObjectData>();
         
-        // 假設所有互動式物件都有 "Interactable" Tag
-        // 這邊只是範例，實際請根據你的遊戲邏輯撰寫
+        // Assume all interactable objects have "Interactable" Tag
+        // This is just an example, write according to actual game logic
         Collider[] hits = Physics.OverlapSphere(agentTransform.position, 5.0f);
         foreach(var hit in hits)
         {
@@ -124,7 +140,7 @@ public class AgentNetworkManager : MonoBehaviour
             {
                 objects.Add(new WorldObjectData
                 {
-                    id = hit.name, // 例如 "Stove_01"
+                    id = hit.name, // e.g., "Stove_01"
                     type = "Prop",
                     position = new PositionData { x = hit.transform.position.x, y = hit.transform.position.y, z = hit.transform.position.z },
                     distance = Vector3.Distance(agentTransform.position, hit.transform.position),
@@ -145,61 +161,65 @@ public class AgentNetworkManager : MonoBehaviour
             
             if (response.plan != null && response.plan.Count > 0)
             {
-                Debug.Log($"[Agent] 收到任務: {response.task}，共 {response.plan.Count} 個步驟");
-                // 改成啟動協程，一步一步執行
+                Debug.Log($"[Agent] Received task: {response.task}, Total steps: {response.plan.Count}");
+                // Start coroutine to execute step by step
                 StartCoroutine(ExecutePlanRoutine(response.plan));
             }
             else
             {
-                Debug.Log("[Agent] 收到回應但沒有計畫 (閒聊或思考中)");
-                isThinking = false; // 沒事做，直接解鎖思考
+                headBubble?.HideBubble();
+                Debug.Log("[Agent] Received response but no plan (Chatting or Thinking)");
+                isThinking = false; // Nothing to do, unlock thinking directly
             }
         }
         catch (Exception e)
         {
             Debug.LogError("Parsing Error: " + e.Message);
-            isThinking = false; // 出錯也要解鎖
+            isThinking = false; // Unlock even on error
         }
     }
     private IEnumerator ExecutePlanRoutine(List<AgentActionData> plan)
     {
         foreach (var action in plan)
         {
-            Debug.Log($"[Agent] 開始執行步驟: {action.function} ({action.thought_trace})");
+            headBubble?.ShowThought(action.thought_trace);
+
+            Debug.Log($"[Agent] Start executing step: {action.function} ({action.thought_trace})");
             
-            // 1. 在執行前，先舉起旗標「我正在忙」
-            // 這樣不管是 Move (非同步) 還是 Put (同步)，Manager 都不會馬上往下跑
+            // 1. Raise flag "I am busy" before execution
+            // This prevents Manager from continuing immediately regardless of Move (Async) or Put (Sync)
             agentState.IsActionExecuting = true;
 
-            // 2. 發送指令給 ActionMove / ActionPut
+            // 2. Dispatch command to ActionMove / ActionPut
             actionDispatcher.DispatchAction(action.function, action.args);
             
-            // 3. 智能等待：只要 Agent 還在忙 (IsActionExecuting == true)，就一直等
-            // 設定一個超時保險 (例如 30秒)，避免如果出 Bug 卡死一輩子
+            // 3. Smart wait: Wait as long as Agent is busy (IsActionExecuting == true)
+            // Set a timeout safeguard (e.g., 30s) to prevent infinite stuck if bugs occur
             float timeout = 30f; 
             float timer = 0f;
 
             while (agentState.IsActionExecuting && timer < timeout)
             {
-                yield return null; // 等待下一幀 (不會卡住 Unity)
+                yield return null; // Wait for next frame (Won't freeze Unity)
                 timer += Time.deltaTime;
             }
 
-            // 如果是因為超時才跳出來的，印個警告
+            // If exited due to timeout, print warning
             if (timer >= timeout) 
             {
-                Debug.LogWarning($"[Agent] 警告：動作 {action.function} 執行超過 {timeout} 秒，強制跳到下一步！");
-                agentState.IsActionExecuting = false; // 強制重置
+                Debug.LogWarning($"[Agent] Warning: Action {action.function} exceeded {timeout}s, forcing next step!");
+                agentState.IsActionExecuting = false; // Force reset
             }
 
-            // 4. 動作之間的小緩衝 (讓動作看起來不那麼僵硬)
+            // 4. Small buffer between actions (Make movement look less stiff)
             yield return new WaitForSeconds(0.5f); 
         }
 
-        Debug.Log("[Agent] 所有計畫執行完畢！(Task Finished)");
+        Debug.Log("[Agent] All plans finished! (Task Finished)");
         
+        headBubble?.ShowThought("Finished!");
         isThinking = false; 
-        // SendPerception(); // 如果需要連續思考可以打開
+        // SendPerception(); // Uncomment if continuous thinking is needed
     }
     private async void OnApplicationQuit()
     {
@@ -209,106 +229,213 @@ public class AgentNetworkManager : MonoBehaviour
     {
         StopAllCoroutines();
     }
-
-    [ContextMenu("測試：模擬 Server 指令 (Mock-Onion ID版)")]
-    public void TestMockServerResponse_NoNumbers()
+    [ContextMenu("Debug: Print Current Perception")]
+    public void DebugPrintCurrentPerception()
     {
-        // 1. 設定場景物件名稱
-        string itemName = "OnionBox";       // 要拿的
-        string tableName = "Preparation"; // 要放的
-
-        // 2. 防呆檢查 (只是為了確保場景沒壞，不需要取座標了)
-        if (GameObject.Find(itemName) == null)
+        // 1. Get data (Copy logic from SendPerception, but don't send)
+        agentState.GetLastActionStatus(out string status, out string error);
+        
+        var perception = new PerceptionData
         {
-            Debug.LogError($"[Test Error] 找不到 '{itemName}'！請檢查場景物件名稱");
+            time_hour = System.DateTime.Now.Hour,
+            day = 1,
+            mode = "reality",
+            location_id = agentState.GetLocationId(),
+            player_nearby = agentNearby.CheckPlayerNearby(),
+            nearby_objects = agentNearby.ScanNearbyObjects(), // Ensure no error here
+            held_item = agentState.GetHeldItem(),
+            last_action_status = status,
+            last_action_error = error
+        };
+
+        // 2. Serialize and print
+        string json = JsonConvert.SerializeObject(perception, Formatting.Indented);
+        Debug.Log($"<color=yellow>[Debug Check] Current Perception State:</color>\n{json}");
+    }
+
+    [ContextMenu("Test: Chop Onion -> Put on Plate")]
+    public void TestMockChopOnion_Final()
+    {
+        // 1. Scene object names (Confirm these names exist in Hierarchy)
+        string onionSource = "OnionBox";     // Place to get onion
+        string tableLocation = "Preparation"; // Prep table (Navigate here)
+        string functionalBoard = "CutBoard";  // Cutting board (On prep table, has SliceBoard script)
+        string plateLocation = "Plate";       // Plate (Place for final product)
+
+        // 2. Safety check
+        if (GameObject.Find(functionalBoard) == null)
+        {
+            Debug.LogError($"[Test Error] Cannot find '{functionalBoard}'! Check if it exists in scene with correct name.");
             return;
         }
 
-        Debug.Log($"[Test] 啟動純 ID 導航測試: {itemName} -> {tableName}");
+        Debug.Log($"[Test] Start flow: {onionSource} -> {tableLocation}(Stand) -> {functionalBoard}(Chop) -> {plateLocation}");
 
-        // 3. 捏造 JSON 指令 (完全不含座標數字)
-        // 注意看 move_to 的參數，現在只傳 "id"
+        // 3. Compose command
         string mockJson = $@"
         {{
-            ""task"": ""運送洋蔥 (ID 導航版)"",
+            ""task"": ""Chop onion and plate it"",
             ""plan"": [
                 {{
-                    ""thought_trace"": ""1. 前往洋蔥箱"",
+                    ""thought_trace"": ""1. Go get onion"",
                     ""function"": ""move_to"",
-                    ""args"": {{ ""id"": ""{itemName}"" }} 
+                    ""args"": {{ ""id"": ""{onionSource}"" }} 
                 }},
                 {{
-                    ""thought_trace"": ""2. 撿起洋蔥"",
+                    ""thought_trace"": ""2. Pickup onion"",
                     ""function"": ""pickup"",
-                    ""args"": {{ ""id"": ""{itemName}"" }}
+                    ""args"": {{ ""id"": ""{onionSource}"" }}
                 }},
                 {{
-                    ""thought_trace"": ""3. 拿著洋蔥前往櫃檯"",
+                    ""thought_trace"": ""3. Walk to table"",
                     ""function"": ""move_to"",
-                    ""args"": {{ ""id"": ""{tableName}"" }}
+                    ""args"": {{ ""id"": ""{functionalBoard}"" }}
                 }},
                 {{
-                    ""thought_trace"": ""4. 把洋蔥放在櫃檯上"",
+                    ""thought_trace"": ""4. Put on cut board"",
                     ""function"": ""put_down"",
-                    ""args"": {{ ""id"": ""{tableName}"" }}
+                    ""args"": {{ ""id"": ""{functionalBoard}"" }}
+                }},
+                {{
+                    ""thought_trace"": ""5. Chop chop chop"",
+                    ""function"": ""chop"",
+                    ""args"": {{ ""id"": ""{functionalBoard}"" }}
+                }},
+                {{
+                    ""thought_trace"": ""6. Pick up chopped onion"",
+                    ""function"": ""pickup"",
+                    ""args"": {{ ""id"": ""{functionalBoard}"" }}
+                }},
+                {{
+                    ""thought_trace"": ""7. Move to plate"",
+                    ""function"": ""move_to"",
+                    ""args"": {{ ""id"": ""{tableLocation}"" }}
+                }},
+                {{
+                    ""thought_trace"": ""8. Plating"",
+                    ""function"": ""put_down"",
+                    ""args"": {{ ""id"": ""{tableLocation}"" }}
                 }}
             ]
         }}";
 
-        // 4. 發送指令
         HandleServerResponse(mockJson);
     }
-    [ContextMenu("測試：模擬 Server 指令 (Mock-Tomato ID版)")]
-    public void TestMockTomatoServerResponse()
+    [ContextMenu("Test: Meat -> Oven -> Table (Separated Flow)")]
+    public void TestMockCookMeat_Final()
     {
-        // 1. 設定場景物件名稱 (請確認場景裡真的有這些名字的物件)
-        string itemName = "TomatoBox";      // 要拿的東西
-        string tableName = "Preparation"; // 要放的桌子
+        string meatSource = "MeatBox";      
+        string ovenLocation = "Oven";       
+        string tableLocation = "Preparation"; 
 
-        // 2. 防呆檢查 (確保場景有這東西，不然 ActionMove 也會找不到)
-        if (GameObject.Find(itemName) == null)
+        if (GameObject.Find(ovenLocation) == null)
         {
-            Debug.LogError($"[Test Error] 找不到 '{itemName}'！請檢查場景物件名稱");
+            Debug.LogError($"[Test Error] Cannot find '{ovenLocation}'!");
             return;
         }
 
-        Debug.Log($"[Test] 啟動番茄搬運測試 (ID模式): {itemName} -> {tableName}");
+        Debug.Log($"[Test] Start flow: Get Raw -> Put into Oven -> Wait Cook -> Get Cooked -> Table");
 
-        // 3. 捏造 JSON 指令 (完全不含座標數字)
-        // 注意：這裡 move_to 的 args 改成用 "id"
         string mockJson = $@"
         {{
-            ""task"": ""運送蕃茄到櫃檯 (測試)"",
+            ""task"": ""Cook meat completely"",
             ""plan"": [
                 {{
-                    ""thought_trace"": ""1. 前往番茄箱"",
+                    ""thought_trace"": ""1. Go to MeatBox"",
+                    ""function"": ""move_to"",
+                    ""args"": {{ ""id"": ""{meatSource}"" }} 
+                }},
+                {{
+                    ""thought_trace"": ""2. Pick up raw meat"",
+                    ""function"": ""pickup"",
+                    ""args"": {{ ""id"": ""{meatSource}"" }}
+                }},
+                {{
+                    ""thought_trace"": ""3. Go to Oven"",
+                    ""function"": ""move_to"",
+                    ""args"": {{ ""id"": ""{ovenLocation}"" }}
+                }},
+                {{
+                    ""thought_trace"": ""4. Put meat in Oven"",
+                    ""function"": ""put_down"",
+                    ""args"": {{ ""id"": ""{ovenLocation}"" }}
+                }},
+                {{
+                    ""thought_trace"": ""5. Wait for cooking..."",
+                    ""function"": ""cook"",
+                    ""args"": {{ ""id"": ""{ovenLocation}"" }}
+                }},
+                {{
+                    ""thought_trace"": ""6. Pick up cooked meat"",
+                    ""function"": ""pickup"",
+                    ""args"": {{ ""id"": ""{ovenLocation}"" }}
+                }},
+                {{
+                    ""thought_trace"": ""7. Go to Prep Table"",
+                    ""function"": ""move_to"",
+                    ""args"": {{ ""id"": ""{tableLocation}"" }}
+                }},
+                {{
+                    ""thought_trace"": ""8. Place cooked meat"",
+                    ""function"": ""put_down"",
+                    ""args"": {{ ""id"": ""{tableLocation}"" }}
+                }}
+            ]
+        }}";
+
+        HandleServerResponse(mockJson);
+    }
+    [ContextMenu("Test: Simulate Server Command (Mock-Tomato ID Version)")]
+    public void TestMockTomatoServerResponse()
+    {
+        // 1. Set scene object names (Confirm objects with these names exist)
+        string itemName = "MeatBox";      // Item to take
+        string tableName = "";
+
+        // 2. Safety check (Ensure object exists, otherwise ActionMove won't find it)
+        if (GameObject.Find(itemName) == null)
+        {
+            Debug.LogError($"[Test Error] Cannot find '{itemName}'! Check scene object names");
+            return;
+        }
+
+        Debug.Log($"[Test] Start Tomato Transport Test (ID Mode): {itemName} -> {tableName}");
+
+        // 3. Fabricate JSON command (No coordinate numbers)
+        // Note: move_to args changed to use "id"
+        string mockJson = $@"
+        {{
+            ""task"": ""Deliver tomato to counter (Test)"",
+            ""plan"": [
+                {{
+                    ""thought_trace"": ""1. Go to Tomato Box"",
                     ""function"": ""move_to"",
                     ""args"": {{ ""id"": ""{itemName}"" }} 
                 }},
                 {{
-                    ""thought_trace"": ""2. 撿起番茄"",
+                    ""thought_trace"": ""2. Pickup Tomato"",
                     ""function"": ""pickup"",
                     ""args"": {{ ""id"": ""{itemName}"" }}
                 }},
                 {{
-                    ""thought_trace"": ""3. 拿著番茄前往櫃檯"",
+                    ""thought_trace"": ""3. Go to counter with tomato"",
                     ""function"": ""move_to"",
                     ""args"": {{ ""id"": ""{tableName}"" }}
                 }},
                 {{
-                    ""thought_trace"": ""4. 把番茄放在櫃檯上"",
+                    ""thought_trace"": ""4. Put tomato on counter"",
                     ""function"": ""put_down"",
                     ""args"": {{ ""id"": ""{tableName}"" }}
                 }}
             ]
         }}";
 
-        // 4. 發送指令
+        // 4. Send command
         HandleServerResponse(mockJson);
     }
 }
 
-// --- Data Classes (DTOs) 對應 Python Schemas ---
+// --- Data Classes (DTOs) Matches Python Schemas ---
 
 [Serializable]
 public class PerceptionData
