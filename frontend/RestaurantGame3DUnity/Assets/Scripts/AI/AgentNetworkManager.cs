@@ -230,6 +230,16 @@ public class AgentNetworkManager : MonoBehaviour
                 // canTake 代表煮好了，GetItem()!=NONE 代表有東西佔著
                 state["is_occupied"] = (!box.canTake && box.GetItem() != ItemType.NONE);
                 state["has_cooked_food"] = box.canTake;
+                if (box.canTake)
+                {
+                    // 煮好了 -> 賦值 "CookedMeat"
+                    state["held_item"] = "CookedMeat";
+                }
+                else
+                {
+                    // 空的 -> null
+                    state["held_item"] = null;
+                }
                 //state["cooking_progress"] = 0; // 這裡可以接 oven.progress
             }
         }
@@ -546,7 +556,6 @@ public class AgentNetworkManager : MonoBehaviour
         string json = JsonConvert.SerializeObject(payload, Formatting.Indented);
         Debug.Log($"<color=cyan>[JSON Output]</color> Payload Size: {json.Length} chars\n{json}");
     }
-
     [ContextMenu("Debug: Print Full Mock JSON (Schema Check)")]
     public void DebugPrintFullMockState()
     {
