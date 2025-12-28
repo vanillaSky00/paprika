@@ -64,6 +64,10 @@ class SelfState(BaseModel):
     current_zone: str
     held_item: dict[str, Any] | None | str = "Nothing" # handle if unity give null and need nothing for better prompts
 
+class Statistics(BaseModel):
+    table_item_count: int = 0
+    table_items: list[str] = Field(default_factory=list)
+    
 class Perception(BaseModel):
     """
     Why: Unity send character's scenory perception for agent to make plans
@@ -73,6 +77,7 @@ class Perception(BaseModel):
     self: SelfState
     sensory: Sensory
     execution_trace: list[TraceStep] = Field(default_factory=list)
+    statistics: Statistics 
 
 
 # --- DB data or Memory ------------------------------------

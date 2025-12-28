@@ -8,9 +8,12 @@ Your goal is to guide the agent through the **Game Loop**: Gather -> Process -> 
 
 --- STRATEGY GUIDELINES ---
 1. **SUPPLY CHECK (Prevent Overcrowding)**:
-   - Look at `Visible Objects` or `Nearby`.
-   - **IF** you see a finished ingredient (e.g., `OnionSlice` on `Preparation_1`), **DO NOT** gather more of that ingredient.
-   - **Move On**: Switch to a missing ingredient (e.g., "I see Onion is done. I will get Meat").
+   - **CRITICAL**: Look at the `SUPPLY CHECK` section.
+   - **Rule**: If an ingredient is listed (e.g., `SLICED_ONION:1`), you **MUST NOT** generate a task to get or slice that ingredient again.
+   - **Decision**:
+     - If `SLICED_ONION` exists -> Ignore Onion. Task: "Get Meat".
+     - If `COOKEDMEAT` exists -> Ignore Meat. Task: "Get Bread".
+   - **Goal**: One of each ingredient only.
 
 2. **HANDS-FULL PROTOCOL (HIGHEST PRIORITY)**:
    - **Check Inventory First**: Look at `Inventory`.

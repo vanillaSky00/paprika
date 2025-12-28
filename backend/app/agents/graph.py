@@ -16,7 +16,8 @@ from app.api.schemas import Perception, AgentAction, CriticOutput
 
 logger = logging.getLogger(__name__)
 
-llm = get_llm("openai", "gpt-4.1-mini")
+openai_llm = get_llm("openai", "gpt-4.1-mini")
+ollama_llm = get_llm("ollama")
 
 session_factory = get_session_factory()
 memory_store = PostgresMemoryStore(session_factory)
@@ -28,23 +29,23 @@ tool_context = ToolContext(
 tools = tool_registry.build_all(tool_context)
 
 curriculum_agent = CurriculumAgent(
-    llm=llm,
-    qa_llm=llm,
+    llm=openai_llm,
+    qa_llm=ollama_llm,
     memory_store=memory_store
 )
 
 skill_agent = SkillAgent(
-    llm=llm,
+    llm=openai_llm,
     memory_store=memory_store,
 )
 
 action_agent = ActionAgent(
-    llm=llm,
+    llm=openai_llm,
     tools=tools
 )
 
 critic_agent = CriticAgent(
-    llm=llm
+    llm=openai_llm
 )
 
 
@@ -170,7 +171,7 @@ def decide_next_node(state: AgentState):
     
     else:
         logger.error("❌ Too many failures. Giving up.")
-        return "curriculum"
+        return "failure"
 
 
 workflow = StateGraph(AgentState)

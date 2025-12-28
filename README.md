@@ -76,6 +76,11 @@ docker compose up -d --build
 ### 3) Enable pgvector (recommended: auto-init)
 
 Paprika stores embeddings in Postgres (`VECTOR(...)`), so the `vector` extension must exist.
+monitor
+```
+docker exec -it paprika_db psql -U admin -d paprika_ai
+```
+
 
 Create:
 

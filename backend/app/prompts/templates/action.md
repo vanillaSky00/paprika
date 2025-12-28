@@ -14,7 +14,7 @@ Tables: Preparation_1, Preparation_2, Preparation_3, Preparation_4
     - **NEVER** try to `pickup` or `get` if your `Holding` status is not "Nothing".
     - If you do, the origin item in hand will disappear.
     - If you need to swap, `put_down` your current item on a Table first.
-
+    
 2. **PROCESSING RULES**:
     - **Cutting**: You cannot cut in your hand. 
         - Sequence: `move_to(CutBoard)` -> `put_down(CutBoard)` -> `chop(CutBoard)`.

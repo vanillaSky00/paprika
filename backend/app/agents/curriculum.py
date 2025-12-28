@@ -59,6 +59,9 @@ class CurriculumAgent(BaseAgent):
         --- RELEVANT MEMORIES (What I learned here before) ---
         {long_term_memories_str}
         
+        --- SUPPLY CHECK (What is already on the table?) ---
+        {obj.prepared_items_summary}
+        
         --- RECENT ACTION HISTORY (Do not repeat failed tasks) ---
         {history_str}
 
@@ -162,5 +165,6 @@ class CurriculumAgent(BaseAgent):
         pass
     
     #TODO handle qa system
-    def run_qa():
+    def run_qa(self):
+        # self.qa_llm.generate_response()
         pass

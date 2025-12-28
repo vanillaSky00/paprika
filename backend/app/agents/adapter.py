@@ -61,3 +61,21 @@ class ObservationAdapter:
                 return f"❌ FAILED at Step {step.step_index}: {step.message}"
 
         return f"✅ SUCCESS (Completed {len(trace)} steps)"
+    
+    @property
+    def prepared_items_summary(self) -> str:
+        """
+        Returns a summary of processed ingredients currently on the Preparation Tables.
+        Useful for the Curriculum Agent to know if 'Assembly' can start.
+        """
+        stats = self._p.statistics
+        
+        if not stats or stats.table_item_count == 0:
+            return "Preparation Tables are empty."
+        
+        # 2. Format the list
+        # Input: ["SLICED_ONION:1", "COOKEDMEAT:1"]
+        # Output: "SLICED_ONION(1), COOKEDMEAT(1)"
+        formatted_items = ", ".join(stats.table_items)
+        
+        return f"We have prepared those ingredients ({stats.table_item_count} items): {formatted_items}"

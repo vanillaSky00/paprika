@@ -1,5 +1,10 @@
 import logging
+import json
 import asyncio
+import os
+import redis.asyncio as redis
+from typing import Any
+
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from app.agents.graph import graph_app
 from app.api.schemas import Perception
@@ -8,6 +13,8 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379/0")
+redis_client = redis.from_url(REDIS_URL, decode_responses=True)
 
 class ConnectionManager:
     def __init__(self):
@@ -45,11 +52,38 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
     await manager.connect(websocket)
     
     session_state = {
-        "task": "Decide Next Task",
-        "plan": [],
-        "retry_count": 0,
-        "skill_guide": ""
+            "task": "Decide Next Task",
+            "plan": [],
+            "retry_count": 0,
+            "skill_guide": ""
     }
+    # try:
+        # Session recover if found
+        # session_key = f"session:{client_id}"
+        # stored_data = await redis_client.get(session_key)
+        
+        # if stored_data:
+        #     logger.info(f"🔄 RESTORED session for {client_id} from Redis")
+        #     session_state = json.loads(stored_data)
+            
+        #     await manager.send_personal_message({
+        #         "type": "RESUMED", 
+        #         "task": session_state.get("task", "Unknown"),
+        #         "plan": session_state.get("plan", []),
+        #         "retry_count": session_state.get("retry_count", 0),
+        #         "skill_guide": session_state.get("skill_guide", "")
+        #     }, websocket)
+            
+        # else:
+        #     logger.info(f"🆕 NEW session for {client_id}")
+        #     session_state = {
+        #         "task": "Decide Next Task",
+        #         "plan": [],
+        #         "retry_count": 0,
+        #         "skill_guide": ""
+        #     }
+    # except Exception as e:
+    #     logger.error(f"⚠️ Redis Load Error: {e}. Continuing with in-memory session.")
     
     try:
         while True:
@@ -59,7 +93,6 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
                 perception = Perception(**data)
 
                 logger.warning(f"👁️ Agent {client_id} | Time {perception.self.time_hour}:00 | Loc: {perception.self.current_zone}")
-                logger.warning(f"📦 FULL PERCEPTION DATA:\n{perception.model_dump_json(indent=2)}")
                 
             except Exception as e:
                 logger.warning(f"⚠️ Client #{client_id} sent invalid data: {e}")
@@ -77,12 +110,17 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
             
             final_state = await graph_app.ainvoke(initial_state)
             
-            # --- UPDATE SESSION STATE ---
-            # Save the new task/plan so we remember it next time
+            # session handle
             session_state["task"] = final_state.get("task", "Decide Next Task")
             session_state["plan"] = final_state.get("plan", [])
+            # session_state["plan"] = [a.model_dump() for a in final_state.get("plan", [])]
             session_state["retry_count"] = final_state.get("retry_count", 0)
             session_state["skill_guide"] = final_state.get("skill_guide", "")
+            # If the server crashes 1 second later, this data is safe in Redis.
+            # try:
+            #     await redis_client.set(session_key, json.dumps(session_state))
+            # except Exception as e:
+            #     logger.error(f"⚠️ Redis Save Failed: {e}")
             
             task_name = final_state.get("task", "Unknown")
             plan_json = [action.model_dump() for action in final_state.get("plan", [])]
@@ -101,7 +139,7 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
         
     except WebSocketDisconnect:
         await manager.disconnect(websocket)
-        logger.info("Client #{client_id} disconnect")
+        logger.info(f"🔌 Client #{client_id} disconnected. Memory saved in Redis.")
         
     except Exception as e:
         logger.error(f"❌ Critical Error for Client #{client_id}: {e}", exc_info=True)
@@ -111,3 +149,29 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
         except RuntimeError:
             # Socket already closed
             pass 
+        
+        
+        
+def _serialize_plan(plan_items: list[Any]) -> list[dict[str, Any]]:
+    """
+    Safely converts a list of AgentAction objects OR dictionaries into a JSON-serializable list.
+    """
+    serialized = []
+    if not plan_items:
+        return []
+
+    for item in plan_items:
+        try:
+            if hasattr(item, "model_dump"):
+                # It's a Pydantic v2 model (AgentAction)
+                serialized.append(item.model_dump())
+            elif isinstance(item, dict):
+                # It's already a dictionary (from memory/previous state)
+                serialized.append(item)
+            else:
+                # Fallback for unexpected types
+                logger.warning(f"⚠️ Skipping unserializable plan item: {type(item)}")
+        except Exception as e:
+            logger.error(f"❌ Serialization error on item: {e}")
+            
+    return serialized
