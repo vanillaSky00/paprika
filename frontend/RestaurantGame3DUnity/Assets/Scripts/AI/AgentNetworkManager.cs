@@ -231,9 +231,9 @@ public class AgentNetworkManager : MonoBehaviour
                 state["is_occupied"] = (!box.canTake && box.GetItem() != ItemType.NONE);
                 state["has_cooked_food"] = box.canTake;
                 if (box.canTake) {
-                    state["held_item"] = "CookedMeat";
+                    state["held_item"] = "CookedMeat, Please pickup the meat on Oven.";
                 } else if (oven.isFull) {
-                    state["held_item"] = "RawMeat";
+                    state["held_item"] = "RawMeat, Please use ActionCook.cs to cook it.";
                 } else {
                     state["held_item"] = null;
                 }
