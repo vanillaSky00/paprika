@@ -119,8 +119,8 @@ public class AgentNetworkManager : MonoBehaviour
             time_hour = System.DateTime.Now.Hour, // Or in-game time
             day = 1, // Game days
             mode = "reality",
-            location_id = agentState.GetLocationId(),
-
+            //location_id = agentState.GetLocationId(),
+            location_id = "kitchen",
             player_nearby = agentNearby.CheckPlayerNearby(),
             nearby_objects = agentNearby.ScanNearbyObjects(),
             held_item = agentState.GetHeldItem(),
@@ -151,7 +151,7 @@ public class AgentNetworkManager : MonoBehaviour
                 {
                     id = hit.name, // e.g., "Stove_01"
                     type = "Prop",
-                    position = new PositionData { x = hit.transform.position.x, y = hit.transform.position.y, z = hit.transform.position.z },
+                    //position = new PositionData { x = hit.transform.position.x, y = hit.transform.position.y, z = hit.transform.position.z },
                     distance = Vector3.Distance(agentTransform.position, hit.transform.position),
                     state = "default"
                 });
@@ -191,44 +191,41 @@ public class AgentNetworkManager : MonoBehaviour
     {
         foreach (var action in plan)
         {
-            headBubble?.ShowThought(action.thought_trace);
-
-            Debug.Log($"[Agent] Start executing step: {action.function} ({action.thought_trace})");
+            Debug.Log($"[Agent] 開始執行步驟: {action.function} ({action.thought_trace})");
             
-            // 1. Raise flag "I am busy" before execution
-            // This prevents Manager from continuing immediately regardless of Move (Async) or Put (Sync)
+            // 1. 在執行前，先舉起旗標「我正在忙」
+            // 這樣不管是 Move (非同步) 還是 Put (同步)，Manager 都不會馬上往下跑
             agentState.IsActionExecuting = true;
 
-            // 2. Dispatch command to ActionMove / ActionPut
+            // 2. 發送指令給 ActionMove / ActionPut
             actionDispatcher.DispatchAction(action.function, action.args);
             
-            // 3. Smart wait: Wait as long as Agent is busy (IsActionExecuting == true)
-            // Set a timeout safeguard (e.g., 30s) to prevent infinite stuck if bugs occur
+            // 3. 智能等待：只要 Agent 還在忙 (IsActionExecuting == true)，就一直等
+            // 設定一個超時保險 (例如 30秒)，避免如果出 Bug 卡死一輩子
             float timeout = 30f; 
             float timer = 0f;
 
             while (agentState.IsActionExecuting && timer < timeout)
             {
-                yield return null; // Wait for next frame (Won't freeze Unity)
+                yield return null; // 等待下一幀 (不會卡住 Unity)
                 timer += Time.deltaTime;
             }
 
-            // If exited due to timeout, print warning
+            // 如果是因為超時才跳出來的，印個警告
             if (timer >= timeout) 
             {
-                Debug.LogWarning($"[Agent] Warning: Action {action.function} exceeded {timeout}s, forcing next step!");
-                agentState.IsActionExecuting = false; // Force reset
+                Debug.LogWarning($"[Agent] 警告：動作 {action.function} 執行超過 {timeout} 秒，強制跳到下一步！");
+                agentState.IsActionExecuting = false; // 強制重置
             }
 
-            // 4. Small buffer between actions (Make movement look less stiff)
+            // 4. 動作之間的小緩衝 (讓動作看起來不那麼僵硬)
             yield return new WaitForSeconds(0.5f); 
         }
 
-        Debug.Log("[Agent] All plans finished! (Task Finished)");
+        Debug.Log("[Agent] 所有計畫執行完畢！(Task Finished)");
         
-        headBubble?.ShowThought("Finished!");
         isThinking = false; 
-        // SendPerception(); // Uncomment if continuous thinking is needed
+        // SendPerception(); // 如果需要連續思考可以打開
     }
     private async void OnApplicationQuit()
     {
@@ -241,40 +238,14 @@ public class AgentNetworkManager : MonoBehaviour
     [ContextMenu("Debug: Print Current Perception")]
     public void DebugPrintCurrentPerception()
     {
-        // 1. Get data (Copy logic from SendPerception, but don't send)
-        agentState.GetLastActionStatus(out string status, out string error);
-        
-        var perception = new PerceptionData
+        // 1. 設定場景物件名稱
+        string itemName = "OnionBox";       // 要拿的
+        string tableName = "Preparation"; // 要放的
+
+        // 2. 防呆檢查 (只是為了確保場景沒壞，不需要取座標了)
+        if (GameObject.Find(itemName) == null)
         {
-            time_hour = System.DateTime.Now.Hour,
-            day = 1,
-            mode = "reality",
-            location_id = agentState.GetLocationId(),
-            player_nearby = agentNearby.CheckPlayerNearby(),
-            nearby_objects = agentNearby.ScanNearbyObjects(), // Ensure no error here
-            held_item = agentState.GetHeldItem(),
-            last_action_status = status,
-            last_action_error = error
-        };
-
-        // 2. Serialize and print
-        string json = JsonConvert.SerializeObject(perception, Formatting.Indented);
-        Debug.Log($"<color=yellow>[Debug Check] Current Perception State:</color>\n{json}");
-    }
-
-    [ContextMenu("Test: Chop Onion -> Put on Plate")]
-    public void TestMockChopOnion_Final()
-    {
-        // 1. Scene object names (Confirm these names exist in Hierarchy)
-        string onionSource = "OnionBox";     // Place to get onion
-        string tableLocation = "Preparation"; // Prep table (Navigate here)
-        string functionalBoard = "CutBoard";  // Cutting board (On prep table, has SliceBoard script)
-        string plateLocation = "Plate";       // Plate (Place for final product)
-
-        // 2. Safety check
-        if (GameObject.Find(functionalBoard) == null)
-        {
-            Debug.LogError($"[Test Error] Cannot find '{functionalBoard}'! Check if it exists in scene with correct name.");
+            Debug.LogError($"[Test Error] 找不到 '{itemName}'！請檢查場景物件名稱");
             return;
         }
 
@@ -333,13 +304,14 @@ public class AgentNetworkManager : MonoBehaviour
     [ContextMenu("Test: Meat -> Oven -> Table (Separated Flow)")]
     public void TestMockCookMeat_Final()
     {
-        string meatSource = "MeatBox";      
-        string ovenLocation = "Oven";       
-        string tableLocation = "Preparation"; 
+        // 1. 設定場景物件名稱 (請確認場景裡真的有這些名字的物件)
+        string itemName = "TomatoBox";      // 要拿的東西
+        string tableName = "Preparation"; // 要放的桌子
 
-        if (GameObject.Find(ovenLocation) == null)
+        // 2. 防呆檢查 (確保場景有這東西，不然 ActionMove 也會找不到)
+        if (GameObject.Find(itemName) == null)
         {
-            Debug.LogError($"[Test Error] Cannot find '{ovenLocation}'!");
+            Debug.LogError($"[Test Error] 找不到 '{itemName}'！請檢查場景物件名稱");
             return;
         }
 
@@ -466,16 +438,16 @@ public class WorldObjectData
 {
     public string id;
     public string type;
-    public PositionData position;
+    //public PositionData position;
     public float distance;
     public string state;
 }
 
-[Serializable]
+/*[Serializable]
 public class PositionData
 {
     public float x, y, z;
-}
+}*/
 
 [Serializable]
 public class ServerResponse

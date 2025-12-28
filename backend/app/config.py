@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str | None = None
     OPENAI_MODEL: str | None = "gpt-4.1-mini"
 
-    OLLAMA_BASE_URL: str = "http://localhost:11434"
+    OLLAMA_BASE_URL: str | None = None
     OLLAMA_API_KEY: str | None = None
     OLLAMA_MODEL: str | None = None
 

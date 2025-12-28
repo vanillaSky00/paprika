@@ -18,7 +18,7 @@ async def test_ollama_simple_text():
     try:
         client = get_llm("ollama", settings.OLLAMA_MODEL)
         print(f"\n[Info] Connecting to: {settings.OLLAMA_BASE_URL}")
-        print(f"[Info] Model: {settings.LLM_MODEL}")
+        print(f"[Info] Model: {settings.OLLAMA_MODEL}")
 
         result = await client.generate_response(
             system_prompt="You are a helpful bot.",

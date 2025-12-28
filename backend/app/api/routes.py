@@ -50,17 +50,10 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
             
             try:
                 perception = Perception(**data)
-                logger.warning(
-                    f"👁️ Perception:\n \
-                    time_hour: {perception.time_hour}\n \
-                    day: {perception.day}\n \
-                    mode: {perception.mode}\n \
-                    location_id: {perception.location_id}\n \
-                    player_nearby: {perception.player_nearby}\n \
-                    nearby_objects: {perception.nearby_objects}\n \
-                    held_item: {perception.held_item}\n \
-                    last_action_status: {perception.last_action_status}\n \
-                    last_action_error: {perception.last_action_error}\n")
+
+                logger.warning(f"👁️ Agent {client_id} | Time {perception.self.time_hour}:00 | Loc: {perception.self.current_zone}")
+                logger.warning(f"📦 FULL PERCEPTION DATA:\n{perception.model_dump_json(indent=2)}")
+                
             except Exception as e:
                 logger.warning(f"⚠️ Client #{client_id} sent invalid data: {e}")
                 await manager.send_personal_message({"error": "Invalid Data Schema"}, websocket)
@@ -91,38 +84,6 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
                     task: {response['task']}\n \
                     plan: {response['plan']}\n")
             await manager.send_personal_message(response, websocket)
-            
-            
-            # response1 = {
-            #     "client_id": client_id,
-            #     "task": "運送洋蔥 (ID 導航版)",
-            #     "plan": [
-            #         {"thought_trace": "1. 前往洋蔥箱", "function": "move_to", "args": {"id": "OnionBox"}},
-            #         {"thought_trace": "2. 撿起洋蔥", "function": "pickup", "args": {"id": "OnionBox"}},
-            #         {"thought_trace": "3. 拿著洋蔥前往櫃檯", "function": "move_to", "args": {"id": "Plate_agent_2"}},
-            #         {"thought_trace": "4. 把洋蔥放在櫃檯上", "function": "put_down", "args": {"id": "Plate_agent_2"}}
-            #     ]
-            # }
-            # await asyncio.sleep(10)
-            # response2 = {
-            #     "client_id": client_id,
-            #     "task": "運送蕃茄到櫃檯 (測試)",
-            #     "plan": [
-            #         {"thought_trace": "1. 前往番茄箱", "function": "move_to", "args": {"id": "TomatoBox"}},
-            #         {"thought_trace": "2. 撿起番茄", "function": "pickup", "args": {"id": "TomatoBox"}},
-            #         {"thought_trace": "3. 拿著番茄前往櫃檯", "function": "move_to", "args": {"id": "Plate_agent_1"}},
-            #         {"thought_trace": "4. 把番茄放在櫃檯上", "function": "put_down", "args": {"id": "Plate_agent_1"}}
-            #     ]
-            # }
-
-            # logger.info(
-            #         f"👁️ Response to Unity:\n \
-            #         client_id: {response['client_id']}\n \
-            #         task: {response['task']}\n \
-            #         plan: {response['plan']}\n")
-            # await manager.send_personal_message(response1, websocket)
-            # await asyncio.sleep(10)
-            # await manager.send_personal_message(response2, websocket)
         
     except WebSocketDisconnect:
         await manager.disconnect(websocket)

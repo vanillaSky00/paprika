@@ -4,6 +4,7 @@ import logging
 from langchain_core.messages import HumanMessage
 from langchain_core.tools import StructuredTool
 
+from app.agents.adapter import ObservationAdapter
 from app.api.schemas import AgentAction, Perception
 from app.llm.base import BaseLLMClient
 from app.agents.base import BaseAgent
@@ -33,21 +34,17 @@ class ActionAgent(BaseAgent):
         The eyes of LLM: the 'Context' construction, tell llm what happened
         """
 
-        items = [f"{o.id}({o.state})" for o in perception.nearby_objects]
-
-        if items:
-            visuals = f"I can see: {', '.join(items)}"
-        else:
-            visuals = "I see nothing interactable nearby"
+        obs = ObservationAdapter(perception)
 
         # Make status
         content = f"""
         --- OBSERVATION ---
-        Time: {perception.time_hour}:00
-        Location: {perception.location_id}
-        Holding: {perception.held_item or "Nothing"}
-        Visible: {visuals}
-
+        Time: {obs.time_display}
+        Location: {obs.location}
+        Holding: {obs.inventory}
+        Visible: {obs.visual_summary}
+        Last Action: {obs.last_execution_summary}
+        
         --- TASK ---
         Current Goal: {current_task}
         """
