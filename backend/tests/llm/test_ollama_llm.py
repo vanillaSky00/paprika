@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field
 from app.config import settings
 from app.deps import get_llm
 
-
+@pytest.mark.paid
 @pytest.mark.asyncio
 @pytest.mark.skipif(
     not settings.OLLAMA_API_KEY,
