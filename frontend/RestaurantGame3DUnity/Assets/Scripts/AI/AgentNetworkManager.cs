@@ -32,7 +32,8 @@ public class AgentNetworkManager : MonoBehaviour
     public float reconnectInterval = 3.0f;
 
     public string agentUUID;
-
+    private string pendingPlayerMessage = "";
+    private Coroutine currentPlanCoroutine;
     private readonly Dictionary<string, string> itemNameMapping = new Dictionary<string, string>
     {
         { "SLICEDTOM",   "SLICED_TOMATO" },
@@ -198,8 +199,54 @@ public class AgentNetworkManager : MonoBehaviour
         else
             payload.execution_trace = new List<ExecutionTraceItem>(traceHistory);
 
+        if (!string.IsNullOrEmpty(pendingPlayerMessage))
+        {
+            payload.player_message = pendingPlayerMessage;
+            pendingPlayerMessage = ""; // 清空，避免下次循環重複傳送
+        }
+
         string json = JsonConvert.SerializeObject(payload, Formatting.Indented);
         await websocket.SendText(json);
+    }
+    public void ReceivePlayerMessage(string message)
+    {
+        Debug.Log($"[Player Input] Interrupting agent with: {message}");
+
+        // 1. 設定訊息緩衝區
+        pendingPlayerMessage = message;
+
+        // 2. 緊急煞車：停止當前計畫
+        StopCurrentPlan();
+
+        // 3. 紀錄這個中斷事件 (讓 Agent 知道發生什麼事)
+        RecordActionTrace("PlayerInterrupt", "System", false, $"Interrupted by player: {message}");
+
+        // 4. 強制進入思考模式 (發送包含玩家訊息的 JSON)
+        // 這裡我們稍微延遲一點點，確保 Coroutine 完全停止
+        StartCoroutine(ForceReThinkRoutine());
+    }
+    private void StopCurrentPlan()
+    {
+        // 停止執行計畫的 Coroutine
+        if (currentPlanCoroutine != null)
+        {
+            StopCoroutine(currentPlanCoroutine);
+            currentPlanCoroutine = null;
+        }
+
+        // 強制重置狀態
+        agentState.IsActionExecuting = false;
+        isThinking = false; 
+        currentStepIndex = 0;
+        
+        // 可以在頭頂顯示驚嘆號或文字
+        headBubble?.ShowThought("!? Listening...");
+    }
+
+    private IEnumerator ForceReThinkRoutine()
+    {
+        yield return null; // 等待一幀確保狀態清除
+        SendPerception();  // 立即發送感知資料
     }
     // 修改後的統計邏輯：只算桌子，並合併數量
     private StatisticsData BuildStatisticsData()
@@ -471,7 +518,7 @@ public class AgentNetworkManager : MonoBehaviour
             if (response.plan != null && response.plan.Count > 0)
             {
                 Debug.Log($"[AI] Received Plan: {response.plan.Count} steps");
-                StartCoroutine(ExecutePlanRoutine(response.plan));
+                currentPlanCoroutine = StartCoroutine(ExecutePlanRoutine(response.plan));
             }
             else
             {
@@ -830,6 +877,7 @@ public class AgentPayload
     public SensoryData sensory;
     public StatisticsData statistics;
     public List<ExecutionTraceItem> execution_trace;
+    public string player_message;
 }
 [Serializable]
 public class StatisticsData
