@@ -177,14 +177,16 @@ public class AgentNetworkManager : MonoBehaviour
             {
                 WorldObjectData objData = new WorldObjectData();
                 objData.id = hit.name;
-                objData.distance = Vector3.Distance(transform.position, hit.transform.position);
+                // objData.distance = Vector3.Distance(transform.position, hit.transform.position);
+                Vector3 closestPoint = hit.ClosestPoint(transform.position);
+                objData.distance = Vector3.Distance(transform.position, closestPoint);
                 objData.type = DetermineObjectType(hit.gameObject);
                 
                 // 🔥 取得詳細狀態 (Dictionary)
                 objData.state = GetObjectDetailedState(hit.gameObject);
 
                 // 分類：可觸及 (1.5m) vs 可見
-                if (objData.distance <= 1.5f)
+                if (objData.distance <= 2.5f)
                     data.reachable_objects.Add(objData);
                 else
                     data.visible_objects.Add(objData);

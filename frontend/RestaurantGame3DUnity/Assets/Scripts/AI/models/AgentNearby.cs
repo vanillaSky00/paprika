@@ -5,11 +5,11 @@ public class AgentNearby : MonoBehaviour
 {
     [Header("Config")]
     public float visionRadius = 5.0f;
-    public Transform playerTransform; // 記得在 Inspector 拉入玩家
+    public Transform playerTransform;
     public string targetTag = "Interactable";
 
     [Header("References")]
-    public Transform agentEyeTransform; // 也可以直接用 transform
+    public Transform agentEyeTransform;
 
     public bool CheckPlayerNearby()
     {
@@ -33,12 +33,15 @@ public class AgentNearby : MonoBehaviour
                 Dictionary<string, object> defaultState = new Dictionary<string, object>();
                 defaultState["info"] = "default_prop";
 
+                Vector3 closestPoint = hit.ClosestPoint(transform.position);
+                float realDistance = Vector3.Distance(transform.position, closestPoint);
+
                 objects.Add(new WorldObjectData
                 {
                     id = hit.name,
                     type = "Prop", 
-                    distance = Vector3.Distance(transform.position, hit.transform.position),
-                    state = defaultState // <--- 這裡現在傳入的是 Dictionary，不再是 string
+                    distance = realDistance,
+                    state = defaultState
                 });
             }
         }
