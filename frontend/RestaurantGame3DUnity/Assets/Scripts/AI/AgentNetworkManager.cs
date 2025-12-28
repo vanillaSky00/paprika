@@ -12,7 +12,7 @@ public class AgentNetworkManager : MonoBehaviour
 
     [Header("Components")]
     public AgentState agentState;
-    public AgentNearby agentNearby; // 用來取得視覺半徑參數
+    public AgentNearby agentNearby;
     public ActionDispatcher actionDispatcher;
 
     [Header("Connection Config")]
@@ -27,49 +27,123 @@ public class AgentNetworkManager : MonoBehaviour
 
     private WebSocket websocket;
     private bool isThinking = false;
-
-    async void Start()
+    // reconnecting
+    private bool isReconnecting = false;
+    public float reconnectInterval = 3.0f;
+    
+    void Start()
     {
+        // 遊戲開始，直接進入連線流程
+        InitConnection();
+    }
+
+    // 這是核心連線函式，每次重連都會呼叫這裡
+    async void InitConnection()
+    {
+        // 避免重複建立 WebSocket 實例
+        if (websocket != null && (websocket.State == WebSocketState.Open || websocket.State == WebSocketState.Connecting)) 
+            return;
+
         try
         {
+            // 每次連線都生成新的 ID (若後端需要固定 ID，請將此行移至 Start)
             string uuid = System.Guid.NewGuid().ToString();
             string fullUrl = $"{serverUrl}{uuid}"; 
             
-            headBubble?.ShowThought("Connecting...");
-            Debug.Log($"[AI] Connecting to: {fullUrl}");
+            // UI 顯示
+            if(!isReconnecting) headBubble?.ShowThought("Connecting...");
+            Debug.Log($"[AI] Attempting connection to: {fullUrl}");
             
+            // 建立新的 WebSocket 實例
             websocket = new WebSocket(fullUrl);
 
+            // --- 1. 連線成功 ---
             websocket.OnOpen += () => {
                 Debug.Log("<color=green>[AI] Connected!</color>");
-                headBubble?.ShowThought("Connected!");
-                StartCoroutine(AgentLoopRoutine());
+                headBubble?.ShowThought("Online");
+                
+                // 重置重連旗標
+                isReconnecting = false;
+                
+                // 確保感知迴圈有在跑
+                StopCoroutine("AgentLoopRoutine");
+                StartCoroutine("AgentLoopRoutine");
             };
 
+            // --- 2. 發生錯誤 ---
             websocket.OnError += (e) => {
-                Debug.LogError($"[AI] Error: {e}");
-                headBubble?.ShowThought("Connection Failed");
+                // Error 通常也會觸發 OnClose，所以主要邏輯寫在 OnClose 即可
+                Debug.LogError($"[AI] WebSocket Error: {e}");
             };
             
+            // --- 3. 斷線偵測 (中途斷線) ---
             websocket.OnMessage += (bytes) =>
             {
                 string message = System.Text.Encoding.UTF8.GetString(bytes);
                 HandleServerResponse(message);
             };
 
+            // 關鍵：註冊 OnClose 事件來觸發重連
+            websocket.OnClose += (e) => 
+            {
+                Debug.LogWarning($"[AI] Disconnected! Code: {e}");
+                // 觸發重連機制
+                StartReconnectProcess();
+            };
+
+            // 發送連線請求
             await websocket.Connect();
         }
         catch (System.Exception e)
         {
-            Debug.LogError($"[AI] Critical failure: {e.Message}");
+            // --- 4. 起初連線失敗 (例如伺服器根本沒開) ---
+            Debug.LogError($"[AI] Connection failed immediately: {e.Message}");
+            StartReconnectProcess();
         }
+    }
+
+    // 觸發重連的入口
+    void StartReconnectProcess()
+    {
+        // 如果已經在重連中，就不要重複啟動 Coroutine
+        if (!isReconnecting)
+        {
+            isReconnecting = true;
+            headBubble?.ShowThought("Reconnecting...");
+            StartCoroutine(ReconnectRoutine());
+        }
+    }
+
+    // 無限重試
+    IEnumerator ReconnectRoutine()
+    {
+        Debug.Log($"[AI] Will reconnect in {reconnectInterval} seconds...");
+        
+        // 等待指定秒數
+        yield return new WaitForSeconds(reconnectInterval);
+
+        // 再次嘗試連線
+        // 注意：這裡不需要把 isReconnecting 設為 false
+        // 因為如果這次 InitConnection 又失敗，它會再次觸發 Catch -> StartReconnectProcess
+        // 如果成功，OnOpen 會把 isReconnecting 設為 false
+        InitConnection();
+        
+        // 如果 InitConnection 裡面的 await Connect() 失敗進入 catch，
+        // 或是連上瞬間又斷掉觸發 OnClose，
+        // StartReconnectProcess 會因為 isReconnecting == true 而被擋下？
+        // 不對，所以這裡必須要有一個機制允許下一次重連。
+        
+        // 修正邏輯：
+        // 其實最簡單的方式是：只要這邊呼叫完 InitConnection，我們就暫時解除鎖定，讓 InitConnection 內部的失敗能再次觸發
+        // 但更好的做法是：讓 InitConnection 失敗時再次呼叫 StartReconnectProcess，但 StartReconnectProcess 判斷的是「是否已經有 Coroutine 在跑」
+        // 為了簡化，我們採用「執行完等待」後，直接將 flag 重置，讓下一次失敗可以再次觸發 Coroutine。
+        isReconnecting = false; 
     }
 
     void Update()
     {
         #if !UNITY_WEBGL || UNITY_EDITOR
-            websocket.DispatchMessageQueue();
-            websocket.DispatchMessageQueue();
+            if(websocket != null) websocket.DispatchMessageQueue();
         #endif
     }
 
@@ -77,7 +151,8 @@ public class AgentNetworkManager : MonoBehaviour
     {
         while (true)
         {
-            if (websocket.State == WebSocketState.Open && !isThinking)
+            // 只有在連線狀態為 Open 時才發送資料
+            if (websocket != null && websocket.State == WebSocketState.Open && !isThinking)
             {
                 SendPerception();
             }
@@ -215,7 +290,7 @@ public class AgentNetworkManager : MonoBehaviour
         return "Interactable";
     }
 
-    // 🔥 核心：取得物件的詳細狀態
+    // 核心：取得物件的詳細狀態
     private Dictionary<string, object> GetObjectDetailedState(GameObject obj)
     {
         var state = new Dictionary<string, object>();
