@@ -572,11 +572,6 @@ public class AgentNetworkManager : MonoBehaviour
                     ""args"": {{ ""id"": ""{chop_item}"" }}
                 }},
                 {{
-                    ""thought_trace"": ""6. Pick up chopped onion"",
-                    ""function"": ""pickup"",
-                    ""args"": {{ ""id"": ""{functionalBoard}"" }}
-                }},
-                {{
                     ""thought_trace"": ""7. Move to plate"",
                     ""function"": ""move_to"",
                     ""args"": {{ ""id"": ""{tableLocation}"" }}
