@@ -30,10 +30,20 @@ public class AgentNetworkManager : MonoBehaviour
     // reconnecting
     private bool isReconnecting = false;
     public float reconnectInterval = 3.0f;
-    
+
+    public string agentUUID;
+
     void Start()
     {
         // 遊戲開始，直接進入連線流程
+        if (string.IsNullOrEmpty(agentUUID))
+        {
+            agentUUID = System.Guid.NewGuid().ToString();
+        }
+        else
+        {
+            Debug.Log($"[AI] Using existing Agent UUID: {agentUUID}");
+        }
         InitConnection();
     }
 
@@ -46,9 +56,7 @@ public class AgentNetworkManager : MonoBehaviour
 
         try
         {
-            // 每次連線都生成新的 ID (若後端需要固定 ID，請將此行移至 Start)
-            string uuid = System.Guid.NewGuid().ToString();
-            string fullUrl = $"{serverUrl}{uuid}"; 
+            string fullUrl = $"{serverUrl}{agentUUID}"; 
             
             // UI 顯示
             if(!isReconnecting) headBubble?.ShowThought("Connecting...");
