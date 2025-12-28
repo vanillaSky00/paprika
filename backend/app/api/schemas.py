@@ -54,11 +54,12 @@ class ObjectView(BaseModel):
 class Sensory(BaseModel):
     player_nearby: bool = False
     visible_objects: list[ObjectView] = Field(default_factory=list)
+    reachable_objects: list[ObjectView] = Field(default_factory=list)
 
 class SelfState(BaseModel):
     time_hour: int
     current_zone: str
-    held_item: dict[str, Any] | None = None # Simple dict is fine if structure varies
+    held_item: dict[str, Any] | None | str = "Nothing" # handle if unity give null and need nothing for better prompts
 
 class Perception(BaseModel):
     """

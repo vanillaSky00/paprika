@@ -28,13 +28,22 @@ class ObservationAdapter:
 
     @property
     def visual_summary(self) -> str:
-        objs = self._p.sensory.visible_objects
-        if not objs:
+
+        reachables = self._p.sensory.reachable_objects
+        visibles = self._p.sensory.visible_objects
+        
+
+        all_objs = reachables + visibles
+        if not all_objs:
             return "I see nothing interactable nearby"
         
-        # The logic is now cleaner because .status_summary does the work
-        # Output: "Stove(is_on,contains_items), Tomato(default)"
-        return ", ".join([f"{o.id}{o.status_summary}" for o in objs])
+
+        results = []
+        for o in all_objs:
+            prefix = "[Reachable] " if o in reachables else ""
+            results.append(f"{prefix}{o.id}{o.status_summary}")
+            
+        return ", ".join(results)
 
     @property
     def last_execution_summary(self) -> str:
