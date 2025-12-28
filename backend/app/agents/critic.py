@@ -38,6 +38,9 @@ class CriticAgent(BaseAgent):
         Holding: {obj.inventory}
         Visible Objects: {obj.visual_summary}
         
+        --- SUPPLY CHECK (Truth from prep table) ---
+        {obj.prepared_items_summary}
+
         --- SYSTEM FEEDBACK ---
         Last Action Status: {obj.last_execution_summary}
         """

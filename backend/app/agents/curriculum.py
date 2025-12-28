@@ -15,7 +15,7 @@ class CurriculumAgent(BaseAgent):
         llm: BaseLLMClient, 
         qa_llm: BaseLLMClient,
         memory_store: BaseMemoryStore,
-        memory_window_size: int=5,
+        memory_window_size: int=10,
         template_name="curriculum", 
         tools=None,
         mode="auto",
