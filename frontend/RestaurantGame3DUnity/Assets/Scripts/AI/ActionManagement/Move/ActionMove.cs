@@ -7,6 +7,7 @@ using Newtonsoft.Json;
 [RequireComponent(typeof(AgentMovement))]
 [RequireComponent(typeof(AgentState))]
 [RequireComponent(typeof(NavMeshAgent))]
+[RequireComponent(typeof(AgentNetworkManager))] // 🔥 確保有 Manager
 public class ActionMove : MonoBehaviour, IAgentAction
 {
     public string ActionName => "move_to";
@@ -14,6 +15,7 @@ public class ActionMove : MonoBehaviour, IAgentAction
     private AgentMovement agentMovement;
     private AgentState agentState;
     private NavMeshAgent navAgent;
+    private AgentNetworkManager networkManager; // 🔥 1. 新增變數
     private float moveTimeout = 15f; 
 
     void Awake()
@@ -21,31 +23,32 @@ public class ActionMove : MonoBehaviour, IAgentAction
         agentMovement = GetComponent<AgentMovement>();
         agentState = GetComponent<AgentState>();
         navAgent = GetComponent<NavMeshAgent>();
+        networkManager = GetComponent<AgentNetworkManager>(); // 🔥 2. 抓取元件
     }
 
     public void Execute(Dictionary<string, object> args)
     {
         Vector3 rawTargetPos = Vector3.zero;
         bool hasTarget = false;
-        string targetName = "Unknown";
+        string targetName = "Unknown"; // 用來記錄 Trace 的名稱
 
-        // --- 模式 A: ID 自動感知 (這是你要的功能！) ---
+        // --- 模式 A: ID 自動感知 ---
         if (args.ContainsKey("id"))
         {
             string id = args["id"].ToString();
-            //GameObject targetObj = GameObject.Find(id);
             GameObject targetObj = SmartObjectFinder.FindBestTarget(id, transform.position);
 
             if (targetObj != null)
             {
                 Debug.Log($"[ActionMove] 智能鎖定目標: {id} -> {targetObj.name}");
+                
                 // 優先找有沒有設定 "InteractionPoint" (站位點)
                 Transform standPoint = targetObj.transform.Find("InteractionPoint");
                 
                 if (standPoint != null)
                 {
                     rawTargetPos = standPoint.position;
-                    targetName = $"{id} (StandPoint)";
+                    targetName = id; // 保持原始 ID，這樣 LLM 才看得懂
                     Debug.Log($"[ActionMove] 感知到物件 '{id}'，使用專屬站位點");
                 }
                 else
@@ -58,12 +61,17 @@ public class ActionMove : MonoBehaviour, IAgentAction
             }
             else
             {
-                Debug.LogError($"[ActionMove] 找不到物件 ID: {id}，請檢查場景物件名稱！");
-                agentState.ReportActionFinished(false, $"Object '{id}' not found");
+                string msg = $"Object '{id}' not found in scene";
+                Debug.LogError($"[ActionMove] {msg}");
+                
+                // 🔥 紀錄失敗
+                if (networkManager) networkManager.RecordActionTrace(ActionName, id, false, msg);
+                
+                agentState.ReportActionFinished(false, msg);
                 return;
             }
         }
-        // --- 模式 B: 純座標 (保留作為備用) ---
+        // --- 模式 B: 純座標 ---
         else if (args.ContainsKey("target"))
         {
             try 
@@ -73,6 +81,7 @@ public class ActionMove : MonoBehaviour, IAgentAction
                 if (pos != null && pos.Length >= 3)
                 {
                     rawTargetPos = new Vector3(pos[0], pos[1], pos[2]);
+                    targetName = $"Pos({pos[0]:F1},{pos[2]:F1})";
                     hasTarget = true;
                 }
             }
@@ -97,18 +106,23 @@ public class ActionMove : MonoBehaviour, IAgentAction
                 Debug.LogWarning($"[ActionMove] 警告：{targetName} 附近找不到導航網格！");
             }
 
-            // 啟動協程等待到達
-            StartCoroutine(WaitUntilArrived(finalTarget));
+            // 啟動協程等待到達 (🔥 傳入 targetName 以便紀錄)
+            StartCoroutine(WaitUntilArrived(finalTarget, targetName));
         }
         else
         {
-            agentState.ReportActionFinished(false, "Missing 'id' or 'target' argument");
+            string msg = "Missing 'id' or 'target' argument";
+            // 🔥 紀錄失敗
+            if (networkManager) networkManager.RecordActionTrace(ActionName, "Unknown", false, msg);
+
+            agentState.ReportActionFinished(false, msg);
         }
     }
 
-    private IEnumerator WaitUntilArrived(Vector3 destination)
+    // 🔥 修改：多接收一個 targetName 參數
+    private IEnumerator WaitUntilArrived(Vector3 destination, string targetName)
     {
-        // 畫線除錯：紅色是路線
+        // 畫線除錯
         Debug.DrawLine(transform.position, destination, Color.red, 2.0f);
 
         agentMovement.MoveTo(destination);
@@ -137,8 +151,20 @@ public class ActionMove : MonoBehaviour, IAgentAction
         agentMovement.Stop();
 
         if (hasArrived)
-            agentState.ReportActionFinished(true, $"Arrived at {destination}");
+        {
+            string msg = $"Arrived at {targetName}";
+            // 🔥 紀錄成功
+            if (networkManager) networkManager.RecordActionTrace(ActionName, targetName, true, msg);
+            
+            agentState.ReportActionFinished(true, msg);
+        }
         else
-            agentState.ReportActionFinished(false, "Move timeout or stuck");
+        {
+            string msg = $"Failed to reach {targetName} (Path blocked or Timeout)";
+            // 🔥 紀錄失敗 (超時或卡住)
+            if (networkManager) networkManager.RecordActionTrace(ActionName, targetName, false, msg);
+            
+            agentState.ReportActionFinished(false, msg);
+        }
     }
 }

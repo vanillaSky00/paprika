@@ -3,72 +3,65 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Newtonsoft.Json;
-using NativeWebSocket; // Requires NativeWebSocket package installed
+using NativeWebSocket;
 
 public class AgentNetworkManager : MonoBehaviour
 {
-    [Header("UI Integration (Optional)")] 
-    public AgentThoughtBubble headBubble;  // Bubble above the head
+    [Header("UI Integration")] 
+    public AgentThoughtBubble headBubble;
 
     [Header("Components")]
-    public AgentState agentState;           // Must be bound in Inspector
-    public AgentNearby agentNearby;         // Must be bound in Inspector
-
-    [Header("Actions")]
-    public ActionDispatcher actionDispatcher;   // Must be bound in Inspector
+    public AgentState agentState;
+    public AgentNearby agentNearby; // 用來取得視覺半徑參數
+    public ActionDispatcher actionDispatcher;
 
     [Header("Connection Config")]
-    // public string serverUrl = "ws://localhost:8000/api/ws/agent/player_1";
     public string serverUrl = "ws://localhost:8000/api/ws/agent/";
-    public bool autoReconnect = true;
-
-    [Header("Game State References")]
-    public Transform agentTransform;
-    // Suggest putting a script reference for action execution here, e.g.:
-    // public ActionController actionController; 
+    
+    [Header("Runtime Data")]
+    // 儲存動作歷史紀錄
+    public List<ExecutionTraceItem> traceHistory = new List<ExecutionTraceItem>();
+    
+    // 用來記錄當前是 Plan 的第幾步
+    private int currentStepIndex = 0;
 
     private WebSocket websocket;
-    private bool isThinking = false; // Prevent sending duplicate requests while AI is still thinking
+    private bool isThinking = false;
 
     async void Start()
     {
         try
         {
             string uuid = System.Guid.NewGuid().ToString();
-            string fullUrl = $"ws://127.0.0.1:8000/api/ws/agent/{uuid}";
+            string fullUrl = $"{serverUrl}{uuid}"; 
             
             headBubble?.ShowThought("Connecting...");
-            Debug.Log($"[AI] Initializing connection to: {fullUrl}");
+            Debug.Log($"[AI] Connecting to: {fullUrl}");
             
             websocket = new WebSocket(fullUrl);
 
             websocket.OnOpen += () => {
-                Debug.Log("<color=green>[AI] Connection Verified by Unity!</color>");
+                Debug.Log("<color=green>[AI] Connected!</color>");
                 headBubble?.ShowThought("Connected!");
                 StartCoroutine(AgentLoopRoutine());
             };
 
             websocket.OnError += (e) => {
-                Debug.LogError($"[AI] Connection Error: {e}");
-                headBubble?.ShowThought("Connection Failed :(");
+                Debug.LogError($"[AI] Error: {e}");
+                headBubble?.ShowThought("Connection Failed");
             };
-            websocket.OnClose += (c) => Debug.LogWarning($"[AI] Connection Closed. Code: {c}");
-
+            
             websocket.OnMessage += (bytes) =>
             {
-                // Receive Plan returned from Server
                 string message = System.Text.Encoding.UTF8.GetString(bytes);
                 HandleServerResponse(message);
             };
 
-            Debug.Log("[AI] Awaiting Connect...");
             await websocket.Connect();
-            // Start Perception loop (e.g., every 2 seconds or after action completion)
-            StartCoroutine(AgentLoopRoutine());
         }
         catch (System.Exception e)
         {
-            Debug.LogError($"[AI] Critical failure during startup: {e.Message}");
+            Debug.LogError($"[AI] Critical failure: {e.Message}");
         }
     }
 
@@ -83,177 +76,257 @@ public class AgentNetworkManager : MonoBehaviour
     {
         while (true)
         {
-            // Only send when connection is open and not thinking
             if (websocket.State == WebSocketState.Open && !isThinking)
             {
                 SendPerception();
             }
-            // maybe dynamic frequency, for different work
-            yield return new WaitForSeconds(1.0f); // Adjust frequency
+            yield return new WaitForSeconds(1.0f); 
         }
     }
 
-    void HideBubbleDelay()
-    {
-        headBubble?.HideBubble();
-    }
+    // ------------------------------------------------------------------------
+    // 1. 發送感知 (組裝 JSON)
+    // ------------------------------------------------------------------------
     async void SendPerception()
     {
         isThinking = true;
 
-        headBubble?.ShowThought("(Thinking) Hmm...");
+        AgentPayload payload = new AgentPayload();
 
-        agentState.GetLastActionStatus(out string status, out string error);
-        // 1. Collect scene info (Match this with Python Perception Schema)
-        var perception = new PerceptionData
-        {
-            time_hour = System.DateTime.Now.Hour, // Or in-game time
-            day = 1, // Game days
-            mode = "reality",
-            //location_id = agentState.GetLocationId(),
-            location_id = "kitchen",
-            player_nearby = agentNearby.CheckPlayerNearby(),
-            nearby_objects = agentNearby.ScanNearbyObjects(),
-            held_item = agentState.GetHeldItem(),
-            
-            // Important: Report execution result of the last action
-            last_action_status = status,
-            last_action_error = (status == "success") ? "" : error
-        };
-        
-        //Debug.Log($"[Sending] Location: {perception.location_id}");
-        string json = JsonConvert.SerializeObject(perception);
+        // A. Self
+        payload.self = BuildSelfData();
+
+        // B. Sensory
+        payload.sensory = BuildSensoryData();
+
+        // C. Execution Trace (只傳最近 5 筆)
+        if (traceHistory.Count > 5)
+            payload.execution_trace = traceHistory.GetRange(traceHistory.Count - 5, 5);
+        else
+            payload.execution_trace = new List<ExecutionTraceItem>(traceHistory);
+
+        string json = JsonConvert.SerializeObject(payload, Formatting.Indented);
         await websocket.SendText(json);
     }
 
-    private List<WorldObjectData> ScanNearbyObjects()
+    // ------------------------------------------------------------------------
+    // 2. 構建 Self Data
+    // ------------------------------------------------------------------------
+    private SelfData BuildSelfData()
     {
-        // Example: Search objects within radius
-        List<WorldObjectData> objects = new List<WorldObjectData>();
-        
-        // Assume all interactable objects have "Interactable" Tag
-        // This is just an example, write according to actual game logic
-        Collider[] hits = Physics.OverlapSphere(agentTransform.position, 5.0f);
-        foreach(var hit in hits)
+        SelfData data = new SelfData();
+        data.time_hour = 22; 
+        data.status = agentState.IsActionExecuting ? "Interacting" : "Idle";
+        data.current_zone = "kitchen";
+
+        Inventory inv = GetComponent<Inventory>();
+        if (inv != null && inv.CurrentType != ItemType.NONE)
         {
-            if(hit.CompareTag("Interactable"))
-            {
-                objects.Add(new WorldObjectData
-                {
-                    id = hit.name, // e.g., "Stove_01"
-                    type = "Prop",
-                    //position = new PositionData { x = hit.transform.position.x, y = hit.transform.position.y, z = hit.transform.position.z },
-                    distance = Vector3.Distance(agentTransform.position, hit.transform.position),
-                    state = "default"
-                });
+            // 修正點：先宣告一個具體的 HeldItemData 變數 (tempItem)
+            HeldItemData tempItem = new HeldItemData();
+            
+            // 在這個具體變數上設定數值
+            tempItem.id = inv.CurrentType.ToString() + "_01";
+            tempItem.name = inv.CurrentType.ToString();
+            tempItem.tags = new List<string>();
+
+            if (inv.CurrentType == ItemType.MEATBALL) {
+                tempItem.tags.Add("Raw");
+                tempItem.tags.Add("Food");
+                tempItem.temperature = "Cold";
             }
+            else if (inv.CurrentType == ItemType.COOKEDMEAT) {
+                tempItem.tags.Add("Food");
+                tempItem.tags.Add("Cooked");
+                tempItem.temperature = "Hot";
+            }
+            else {
+                tempItem.tags.Add("Item");
+                tempItem.temperature = "Neutral";
+            }
+        
+            //  最後再把填好的 tempItem 賦值給 object 型別的欄位
+            data.held_item = tempItem;
         }
-        return objects;
+        else
+        {
+            // 這裡賦值字串 "none"，也是合法的，因為目標是 object
+            data.held_item = "none";
+        }
+
+        return data;
     }
 
+    // ------------------------------------------------------------------------
+    // 3. 構建 Sensory Data (掃描環境)
+    // ------------------------------------------------------------------------
+    private SensoryData BuildSensoryData()
+    {
+        SensoryData data = new SensoryData();
+        data.player_nearby = (agentNearby != null && agentNearby.CheckPlayerNearby());
+        data.reachable_objects = new List<WorldObjectData>();
+        data.visible_objects = new List<WorldObjectData>();
+
+        float radius = (agentNearby != null) ? agentNearby.visionRadius : 5.0f;
+        Collider[] hits = Physics.OverlapSphere(transform.position, radius);
+
+        foreach (var hit in hits)
+        {
+            // 只處理有特定 Component 的物件
+            if (IsInterestingObject(hit.gameObject))
+            {
+                WorldObjectData objData = new WorldObjectData();
+                objData.id = hit.name;
+                objData.distance = Vector3.Distance(transform.position, hit.transform.position);
+                objData.type = DetermineObjectType(hit.gameObject);
+                
+                // 🔥 取得詳細狀態 (Dictionary)
+                objData.state = GetObjectDetailedState(hit.gameObject);
+
+                // 分類：可觸及 (1.5m) vs 可見
+                if (objData.distance <= 1.5f)
+                    data.reachable_objects.Add(objData);
+                else
+                    data.visible_objects.Add(objData);
+            }
+        }
+
+        return data;
+    }
+
+    // 過濾感興趣的物件
+    private bool IsInterestingObject(GameObject obj)
+    {
+        return obj.GetComponent<Oven>() != null || 
+               obj.GetComponent<ItemBox>() != null || 
+               obj.GetComponent<SliceBoard>() != null ||
+               obj.name.Contains("Plate");
+    }
+
+    private string DetermineObjectType(GameObject obj)
+    {
+        if (obj.GetComponent<Oven>() || obj.GetComponent<SliceBoard>()) return "Station";
+        if (obj.GetComponent<ItemBox>()) return "Container";
+        if (obj.name.Contains("Plate")) return "Plate";
+        return "Interactable";
+    }
+
+    // 🔥 核心：取得物件的詳細狀態
+    private Dictionary<string, object> GetObjectDetailedState(GameObject obj)
+    {
+        var state = new Dictionary<string, object>();
+
+        // Oven
+        if (obj.TryGetComponent<Oven>(out Oven oven))
+        {
+            state["is_on"] = true;
+            OvenBox box = obj.GetComponentInChildren<OvenBox>();
+            if (box != null)
+            {
+                // canTake 代表煮好了，GetItem()!=NONE 代表有東西佔著
+                state["is_occupied"] = (!box.canTake && box.GetItem() != ItemType.NONE);
+                state["has_cooked_food"] = box.canTake;
+                //state["cooking_progress"] = 0; // 這裡可以接 oven.progress
+            }
+        }
+        // MeatBox / OnionBox
+        else if (obj.TryGetComponent<ItemBox>(out ItemBox itemBox))
+        {
+            state["is_empty"] = false; 
+        }
+        // CutBoard
+        else if (obj.TryGetComponent<SliceBoard>(out SliceBoard board))
+        {
+            if (board.CurrentType != ItemType.NONE)
+                state["occupied_by"] = board.CurrentType.ToString(); 
+            else
+                state["occupied_by"] = "none";
+        }
+        // Plate
+        else if (obj.name.Contains("Plate"))
+        {
+            state["ready_to_serve"] = false;
+        }
+
+        return state;
+    }
+
+    // ------------------------------------------------------------------------
+    // 4. 紀錄 Action Trace
+    // ------------------------------------------------------------------------
+    public void RecordActionTrace(string functionName, string target, bool success, string msg)
+    {
+        ExecutionTraceItem item = new ExecutionTraceItem();
+        item.step_index = (currentStepIndex > 0) ? currentStepIndex : traceHistory.Count + 1;
+        item.function = functionName;
+        item.target_id = target;
+        item.status = success ? "success" : "failed";
+        item.message = msg;
+        
+        traceHistory.Add(item);
+    }
+
+    // ------------------------------------------------------------------------
+    // 5. 處理 Server 回應
+    // ------------------------------------------------------------------------
     private void HandleServerResponse(string json)
     {
-        Debug.Log("Received Plan: " + json);
-
         try
         {
             ServerResponse response = JsonConvert.DeserializeObject<ServerResponse>(json);
-            
             if (response.plan != null && response.plan.Count > 0)
             {
-                Debug.Log($"[Agent] Received task: {response.task}, Total steps: {response.plan.Count}");
-                // Start coroutine to execute step by step
                 StartCoroutine(ExecutePlanRoutine(response.plan));
             }
             else
             {
-                headBubble?.HideBubble();
-                Debug.Log("[Agent] Received response but no plan (Chatting or Thinking)");
-                isThinking = false; // Nothing to do, unlock thinking directly
+                isThinking = false; 
             }
         }
         catch (Exception e)
         {
             Debug.LogError("Parsing Error: " + e.Message);
-            isThinking = false; // Unlock even on error
+            isThinking = false;
         }
     }
+
     private IEnumerator ExecutePlanRoutine(List<AgentActionData> plan)
     {
+        int stepCounter = 1;
         foreach (var action in plan)
         {
+            currentStepIndex = stepCounter++;
             headBubble?.ShowThought(action.thought_trace);
-
-            Debug.Log($"[Agent] Start executing step: {action.function} ({action.thought_trace})");
             
-            // 1. Raise flag "I am busy" before execution
-            // This prevents Manager from continuing immediately regardless of Move (Async) or Put (Sync)
             agentState.IsActionExecuting = true;
-
-            // 2. Dispatch command to ActionMove / ActionPut
             actionDispatcher.DispatchAction(action.function, action.args);
             
-            // 3. Smart wait: Wait as long as Agent is busy (IsActionExecuting == true)
-            // Set a timeout safeguard (e.g., 30s) to prevent infinite stuck if bugs occur
             float timeout = 30f; 
             float timer = 0f;
 
             while (agentState.IsActionExecuting && timer < timeout)
             {
-                yield return null; // Wait for next frame (Won't freeze Unity)
+                yield return null; 
                 timer += Time.deltaTime;
             }
 
-            // If exited due to timeout, print warning
             if (timer >= timeout) 
             {
-                Debug.LogWarning($"[Agent] Warning: Action {action.function} exceeded {timeout}s, forcing next step!");
-                agentState.IsActionExecuting = false; // Force reset
+                agentState.IsActionExecuting = false;
+                RecordActionTrace(action.function, "Unknown", false, "Action Timed Out");
             }
-
-            // 4. Small buffer between actions (Make movement look less stiff)
             yield return new WaitForSeconds(0.5f); 
         }
-
-        Debug.Log("[Agent] All plans finished! (Task Finished)");
         
-        headBubble?.ShowThought("Finished!");
+        headBubble?.ShowThought("Done!");
         isThinking = false; 
-        // SendPerception(); // Uncomment if continuous thinking is needed
+        currentStepIndex = 0;
     }
+
     private async void OnApplicationQuit()
     {
         if(websocket != null) await websocket.Close();
     }
-    private void OnDestroy()
-    {
-        StopAllCoroutines();
-    }
-    // perception data
-    [ContextMenu("Debug: Print Current Perception")]
-    public void DebugPrintCurrentPerception()
-    {
-        // 1. Get data (Copy logic from SendPerception, but don't send)
-        agentState.GetLastActionStatus(out string status, out string error);
-        
-        var perception = new PerceptionData
-        {
-            time_hour = System.DateTime.Now.Hour,
-            day = 1,
-            mode = "reality",
-            location_id = agentState.GetLocationId(),
-            player_nearby = agentNearby.CheckPlayerNearby(),
-            nearby_objects = agentNearby.ScanNearbyObjects(), // Ensure no error here
-            held_item = agentState.GetHeldItem(),
-            last_action_status = status,
-            last_action_error = error
-        };
-
-        // 2. Serialize and print
-        string json = JsonConvert.SerializeObject(perception, Formatting.Indented);
-        Debug.Log($"<color=yellow>[Debug Check] Current Perception State:</color>\n{json}");
-    }
-    // action
     [ContextMenu("Test: Chop Onion -> Put on Plate")]
     public void TestMockChopOnion_Final()
     {
@@ -434,40 +507,166 @@ public class AgentNetworkManager : MonoBehaviour
         // 4. Send command
         HandleServerResponse(mockJson);
     }
+    [ContextMenu("Debug: Print Current State JSON")]
+    public void DebugPrintCurrentState()
+    {
+        // 1. 使用現有的建構函式抓取資料
+        AgentPayload payload = new AgentPayload();
+        payload.self = BuildSelfData();
+        payload.sensory = BuildSensoryData();
+
+        // 2. 處理 Trace (為了測試，如果歷史是空的，我們塞一筆假的給你看)
+        if (traceHistory.Count == 0)
+        {
+            Debug.Log("[Debug] 目前沒有動作紀錄，自動加入一筆測試資料...");
+            ExecutionTraceItem mockTrace = new ExecutionTraceItem
+            {
+                step_index = 1,
+                function = "test_function",
+                target_id = "Debug_Target",
+                status = "success",
+                message = "This is a mock trace for debugging."
+            };
+            payload.execution_trace = new List<ExecutionTraceItem> { mockTrace };
+        }
+        else
+        {
+            // 正常的 Trace 邏輯
+            if (traceHistory.Count > 5)
+                payload.execution_trace = traceHistory.GetRange(traceHistory.Count - 5, 5);
+            else
+                payload.execution_trace = new List<ExecutionTraceItem>(traceHistory);
+        }
+
+        // 3. 序列化並列印
+        string json = JsonConvert.SerializeObject(payload, Formatting.Indented);
+        Debug.Log($"<color=cyan>[JSON Output]</color> Payload Size: {json.Length} chars\n{json}");
+    }
+
+    [ContextMenu("Debug: Print Full Mock JSON (Schema Check)")]
+    public void DebugPrintFullMockState()
+    {
+        // 這是一個「完全假造」的資料，用來檢查 JSON 結構是否符合你的預期
+        // 即使場景裡什麼都沒有，這個也會印出完美的格式
+        
+        AgentPayload mockPayload = new AgentPayload();
+
+        // --- Self ---
+        mockPayload.self = new SelfData
+        {
+            time_hour = 18,
+            current_zone = "Kitchen_Zone",
+            status = "Interacting",
+            held_item = new HeldItemData
+            {
+                id = "Meatball_01",
+                name = "Meatball",
+                tags = new List<string> { "Raw", "Food" },
+                temperature = "Cold"
+            }
+        };
+
+        // --- Sensory ---
+        mockPayload.sensory = new SensoryData
+        {
+            player_nearby = true,
+            reachable_objects = new List<WorldObjectData>(),
+            visible_objects = new List<WorldObjectData>()
+        };
+
+        // 假的可觸及物件 (Oven)
+        var ovenData = new WorldObjectData
+        {
+            id = "Oven",
+            type = "Station",
+            distance = 1.2f,
+            state = new Dictionary<string, object>()
+        };
+        ovenData.state["is_on"] = true;
+        ovenData.state["cooking_progress"] = 0.5f;
+        mockPayload.sensory.reachable_objects.Add(ovenData);
+
+        // 假的遠處物件 (Plate)
+        var plateData = new WorldObjectData
+        {
+            id = "Plate_1",
+            type = "Plate",
+            distance = 4.5f,
+            state = new Dictionary<string, object>()
+        };
+        plateData.state["ready_to_serve"] = false;
+        mockPayload.sensory.visible_objects.Add(plateData);
+
+        // --- Trace ---
+        mockPayload.execution_trace = new List<ExecutionTraceItem>
+        {
+            new ExecutionTraceItem { step_index = 1, function = "move_to", target_id = "MeatBox", status = "success", message = "Arrived" },
+            new ExecutionTraceItem { step_index = 2, function = "pickup", target_id = "MeatBox", status = "success", message = "Got Meat" },
+            new ExecutionTraceItem { step_index = 3, function = "move_to", target_id = "Oven", status = "failed", message = "Path Blocked" }
+        };
+
+        // 序列化
+        string json = JsonConvert.SerializeObject(mockPayload, Formatting.Indented);
+        Debug.Log($"<color=yellow>[Mock JSON Schema]</color>\n{json}");
+    }
 }
 
-// --- Data Classes (DTOs) Matches Python Schemas ---
+// =========================================================
+//  資料結構 (符合你要求的 JSON 格式)
+// =========================================================
 
 [Serializable]
-public class PerceptionData
+public class AgentPayload
+{
+    public SelfData self;
+    public SensoryData sensory;
+    public List<ExecutionTraceItem> execution_trace;
+}
+
+[Serializable]
+public class SelfData
 {
     public int time_hour;
-    public int day;
-    public string mode; // "reality", "dream"
-    public string location_id;
-    public bool player_nearby;
+    public string current_zone; 
+    public string status;       
+    public object held_item;
+}
 
-    public List<WorldObjectData> nearby_objects;
-    public string held_item;
-    public string last_action_status;
-    public string last_action_error;
+[Serializable]
+public class HeldItemData
+{
+    public string id;
+    public string name;
+    public List<string> tags;   
+    public string temperature;
+}
+
+[Serializable]
+public class SensoryData
+{
+    public bool player_nearby;
+    public List<WorldObjectData> reachable_objects; 
+    public List<WorldObjectData> visible_objects;   
 }
 
 [Serializable]
 public class WorldObjectData
 {
     public string id;
-    public string type;
-    //public PositionData position;
+    public string type;        
     public float distance;
-    public string state;
+    public Dictionary<string, object> state; // 使用 Dictionary 增加彈性
 }
 
-/*[Serializable]
-public class PositionData
+[Serializable]
+public class ExecutionTraceItem
 {
-    public float x, y, z;
-}*/
+    public int step_index;
+    public string function;
+    public string target_id;
+    public string status;   
+    public string message; 
+}
 
 [Serializable]
 public class ServerResponse
@@ -481,7 +680,6 @@ public class ServerResponse
 public class AgentActionData
 {
     public string thought_trace;
-    public string function; // "move_to", "interact", etc.
-    public Dictionary<string, object> args; // Arguments
-    public bool plan_complete;
+    public string function;
+    public Dictionary<string, object> args;
 }

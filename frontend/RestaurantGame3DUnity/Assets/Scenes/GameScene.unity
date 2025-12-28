@@ -4529,6 +4529,7 @@ GameObject:
   - component: {fileID: 438543755}
   - component: {fileID: 438543756}
   - component: {fileID: 438543757}
+  - component: {fileID: 438543758}
   m_Layer: 0
   m_Name: Agent_Dog
   m_TagString: Untagged
@@ -4809,6 +4810,24 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   interactDistance: 2.5
+--- !u!114 &438543758
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 438543740}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 72e1ab39f41911247acb23cf0f3a1a8c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  headBubble: {fileID: 1855559363}
+  agentState: {fileID: 438543741}
+  agentNearby: {fileID: 438543742}
+  actionDispatcher: {fileID: 438543750}
+  serverUrl: ws://localhost:8000/api/ws/agent/
+  traceHistory: []
 --- !u!1001 &441462976
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -6118,7 +6137,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 573090055}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 72e1ab39f41911247acb23cf0f3a1a8c, type: 3}
   m_Name: 
@@ -6128,8 +6147,7 @@ MonoBehaviour:
   agentNearby: {fileID: 438543742}
   actionDispatcher: {fileID: 438543750}
   serverUrl: ws://localhost:8000/api/ws/agent/
-  autoReconnect: 1
-  agentTransform: {fileID: 438543749}
+  traceHistory: []
 --- !u!4 &573090057
 Transform:
   m_ObjectHideFlags: 0
