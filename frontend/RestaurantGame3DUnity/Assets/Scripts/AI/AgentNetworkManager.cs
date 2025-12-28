@@ -231,9 +231,9 @@ public class AgentNetworkManager : MonoBehaviour
                 state["is_occupied"] = (!box.canTake && box.GetItem() != ItemType.NONE);
                 state["has_cooked_food"] = box.canTake;
                 if (box.canTake) {
-                    state["held_item"] = "CookedMeat, Please pickup the meat on Oven.";
+                    state["held_item"] = "CookedMeat";
                 } else if (oven.isFull) {
-                    state["held_item"] = "RawMeat, Please use ActionCook.cs to cook it.";
+                    state["held_item"] = "RawMeat";
                 } else {
                     state["held_item"] = null;
                 }
@@ -364,7 +364,7 @@ public class AgentNetworkManager : MonoBehaviour
         string tableLocation = "Preparation"; // Prep table (Navigate here)
         string functionalBoard = "CutBoard";  // Cutting board (On prep table, has SliceBoard script)
         string plateLocation = "Plate";       // Plate (Place for final product)
-
+        string chop_item = "ONION";
         // 2. Safety check
         if (GameObject.Find(functionalBoard) == null)
         {
@@ -402,7 +402,7 @@ public class AgentNetworkManager : MonoBehaviour
                 {{
                     ""thought_trace"": ""5. Chop chop chop"",
                     ""function"": ""chop"",
-                    ""args"": {{ ""id"": ""{functionalBoard}"" }}
+                    ""args"": {{ ""id"": ""{chop_item}"" }}
                 }},
                 {{
                     ""thought_trace"": ""6. Pick up chopped onion"",

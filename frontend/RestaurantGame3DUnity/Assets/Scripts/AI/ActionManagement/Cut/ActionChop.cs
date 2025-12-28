@@ -1,6 +1,7 @@
 using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 
 [RequireComponent(typeof(AgentState))]
 [RequireComponent(typeof(AgentNetworkManager))] // 🔥 確保有 Manager
@@ -33,8 +34,9 @@ public class ActionChop : MonoBehaviour, IAgentAction
             return;
         }
 
-        string targetId = args["id"].ToString();
-        
+        string rawId = args["id"].ToString();
+        string targetId = ResolveTargetId(rawId);
+        //Debug.Log($"[ActionChop] LLM 說: '{rawId}' -> 修正為: '{targetId}'");
         // 2. 找到目標
         GameObject targetObj = SmartObjectFinder.FindBestTarget(targetId, transform.position);
 
@@ -71,17 +73,40 @@ public class ActionChop : MonoBehaviour, IAgentAction
         if (board == null)
         {
             string msg = $"Target {targetId} does not have SliceBoard script!";
-            // 🔥 紀錄失敗
+            // 紀錄失敗
             if (networkManager) networkManager.RecordActionTrace(ActionName, targetId, false, msg);
             
             agentState.ReportActionFinished(false, msg);
             return;
         }
 
-        // 4. 開始切菜 (🔥 把 targetId 傳進去，方便紀錄)
+        // 4. 開始切菜 (把 targetId 傳進去，方便紀錄)
         StartCoroutine(ProcessRoutine(board, targetId));
     }
+    private string ResolveTargetId(string inputId)
+    {
+        // 1. 去除空白並轉小寫，方便比對 (例如 "ONION " -> "onion")
+        string cleanId = inputId.Trim().ToLower();
 
+        // 2. 定義已知對應表 (Hard Mapping) - 處理最常見的情況
+        //    這裡可以處理拼字錯誤 (如 Chese) 或簡寫
+        Dictionary<string, string> aliasMap = new Dictionary<string, string>()
+        {
+            { "onion",   "CutBoard" },
+            { "tomato",  "CutBoard" },
+            { "lettuce", "CutBoard" },
+            { "cheese",  "CutBoard" }, // 修正 AI 拼對但程式碼是 Chese 的狀況
+            { "chese",   "CutBoard" }, // 兼容程式碼原本的拼法
+            { "bread",   "CutBoard" }
+        };
+
+        // 如果在表裡面，直接回傳對應的標準名稱
+        if (aliasMap.ContainsKey(cleanId))
+        {
+            return aliasMap[cleanId];
+        }
+        return inputId;
+    }
     private IEnumerator ProcessRoutine(SliceBoard board, string targetId)
     {
         agentState.IsActionExecuting = true;
