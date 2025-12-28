@@ -68,17 +68,8 @@ public class AgentNetworkManager : MonoBehaviour
     void Update()
     {
         #if !UNITY_WEBGL || UNITY_EDITOR
-            if (websocket != null) 
-            {
-                websocket.DispatchMessageQueue();
-            }
+            websocket.DispatchMessageQueue();
         #endif
-
-        // Periodic check in console every 60 frames
-        // if (Time.frameCount % 60 == 0 && websocket != null)
-        // {
-        //     Debug.Log($"[AI] Current Live State: {websocket.State}");
-        // }
     }
 
     private IEnumerator AgentLoopRoutine()
@@ -409,14 +400,13 @@ public class AgentNetworkManager : MonoBehaviour
     [ContextMenu("Test: Meat -> Oven -> Table (Separated Flow)")]
     public void TestMockCookMeat_Final()
     {
-        // 1. 設定場景物件名稱 (請確認場景裡真的有這些名字的物件)
-        string itemName = "TomatoBox";      // 要拿的東西
-        string tableName = "Preparation"; // 要放的桌子
+        string meatSource = "MeatBox";      
+        string ovenLocation = "Oven";       
+        string tableLocation = "Preparation"; 
 
-        // 2. 防呆檢查 (確保場景有這東西，不然 ActionMove 也會找不到)
-        if (GameObject.Find(itemName) == null)
+        if (GameObject.Find(ovenLocation) == null)
         {
-            Debug.LogError($"[Test Error] 找不到 '{itemName}'！請檢查場景物件名稱");
+            Debug.LogError($"[Test Error] Cannot find '{ovenLocation}'!");
             return;
         }
 
