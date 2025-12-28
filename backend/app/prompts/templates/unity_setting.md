@@ -14,8 +14,8 @@ This file records Unity object names (GameObjects) that the Python backend may r
 - `PlateBoard`
 - `Trash`
 
-## Plates (per-agent instances)
-- `Plate_agent_1`
-- `Plate_agent_2`
-- `Plate_agent_3`
-- `Plate_agent_4`
+## The place agent make hamburger (per-agent instances)
+- `Preparation_1`
+- `Preparation_2`
+- `Preparation_3`
+- `Preparation_4`
