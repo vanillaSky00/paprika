@@ -77,7 +77,7 @@ public class ActionController : MonoBehaviour
     public void DoTakeAction()
     {
         Ray ray = new Ray(transform.position + Vector3.up / 2, transform.forward);
-        if (Physics.Raycast(ray, out RaycastHit hit, 1))
+        if (Physics.Raycast(ray, out RaycastHit hit, 2))
         {
             if (hit.collider.TryGetComponent<IPutItemFull>(out IPutItemFull itemPutBox))
             {
