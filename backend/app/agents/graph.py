@@ -128,6 +128,8 @@ async def learning_node(state: AgentState):
         success=True,
     )
     
+    curriculum_agent.add_recent_task(state['task'])
+    
     return {}
 
 def entry_router(state: AgentState):

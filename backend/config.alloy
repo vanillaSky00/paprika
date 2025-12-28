@@ -1,0 +1,19 @@
+prometheus.exporter.postgres "db_metrics" {
+  data_source_names = [sys.env("POSTGRES_DSN")]
+}
+
+prometheus.scrape "db_scraper" {
+  targets    = prometheus.exporter.postgres.db_metrics.targets
+  forward_to = [prometheus.remote_write.grafana_cloud.receiver]
+}
+
+prometheus.remote_write "grafana_cloud" {
+  endpoint {
+    url = sys.env("GRAFANA_PROM_URL")
+
+    basic_auth {
+      username = sys.env("GRAFANA_PROM_USER")
+      password = sys.env("GRAFANA_PROM_PASS")
+    }
+  }
+}
