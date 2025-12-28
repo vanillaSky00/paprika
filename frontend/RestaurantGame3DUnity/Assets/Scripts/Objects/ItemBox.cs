@@ -4,7 +4,7 @@ using UnityEngine;
 
 public class ItemBox : MonoBehaviour,IGetItem
 {
-    [SerializeField] private ItemType item;
+    [SerializeField] public ItemType item;
     public virtual ItemType GetItem()
     {
         return item;
@@ -15,6 +15,10 @@ public class ItemBox : MonoBehaviour,IGetItem
         item = type;
     }
     public ItemType GetCurrentType()
+    {
+        return item;
+    }
+    public ItemType PeekItem()
     {
         return item;
     }

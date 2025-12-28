@@ -230,14 +230,11 @@ public class AgentNetworkManager : MonoBehaviour
                 // canTake 代表煮好了，GetItem()!=NONE 代表有東西佔著
                 state["is_occupied"] = (!box.canTake && box.GetItem() != ItemType.NONE);
                 state["has_cooked_food"] = box.canTake;
-                if (box.canTake)
-                {
-                    // 煮好了 -> 賦值 "CookedMeat"
+                if (box.canTake) {
                     state["held_item"] = "CookedMeat";
-                }
-                else
-                {
-                    // 空的 -> null
+                } else if (oven.isFull) {
+                    state["held_item"] = "RawMeat";
+                } else {
                     state["held_item"] = null;
                 }
                 //state["cooking_progress"] = 0; // 這裡可以接 oven.progress
@@ -246,7 +243,25 @@ public class AgentNetworkManager : MonoBehaviour
         // MeatBox / OnionBox
         else if (obj.TryGetComponent<ItemBox>(out ItemBox itemBox))
         {
-            state["is_empty"] = false; 
+            bool hasItem = (itemBox.PeekItem() != ItemType.NONE);
+
+            state["is_occupied"] = hasItem;
+            state["is_empty"] = !hasItem;
+
+            if (hasItem)
+            {
+                state["held_item"] = itemBox.PeekItem().ToString();
+            }
+            else
+            {
+                state["held_item"] = null;
+            }
+            
+            // 如果這是一個可以放東西的桌子，我們額外標記一下類型，幫助 LLM 決策
+            if (obj.name.Contains("Preparation") || obj.name.Contains("Table"))
+            {
+                 state["type"] = "Counter"; // 提示這是櫃台
+            }
         }
         // CutBoard
         else if (obj.TryGetComponent<SliceBoard>(out SliceBoard board))
@@ -349,7 +364,7 @@ public class AgentNetworkManager : MonoBehaviour
         string tableLocation = "Preparation"; // Prep table (Navigate here)
         string functionalBoard = "CutBoard";  // Cutting board (On prep table, has SliceBoard script)
         string plateLocation = "Plate";       // Plate (Place for final product)
-
+        string chop_item = "ONION";
         // 2. Safety check
         if (GameObject.Find(functionalBoard) == null)
         {
@@ -387,7 +402,7 @@ public class AgentNetworkManager : MonoBehaviour
                 {{
                     ""thought_trace"": ""5. Chop chop chop"",
                     ""function"": ""chop"",
-                    ""args"": {{ ""id"": ""{functionalBoard}"" }}
+                    ""args"": {{ ""id"": ""{chop_item}"" }}
                 }},
                 {{
                     ""thought_trace"": ""6. Pick up chopped onion"",
