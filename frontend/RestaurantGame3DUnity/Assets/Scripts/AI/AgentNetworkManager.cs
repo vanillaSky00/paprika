@@ -386,12 +386,36 @@ public class AgentNetworkManager : MonoBehaviour
         try
         {
             ServerResponse response = JsonConvert.DeserializeObject<ServerResponse>(json);
+
+            // 1. 優先檢查是否有錯誤
+            if (!string.IsNullOrEmpty(response.error))
+            {
+                Debug.LogError($"[AI Server Error] {response.error}");
+                headBubble?.ShowThought("Brain Error...");
+                isThinking = false; // 發生錯誤就讓 AI 重新思考
+                return;
+            }
+
+            // 2. 檢查是否為重連通知
+            if (response.type == "RESUMED")
+            {
+                Debug.Log($"[AI] Session Resumed! Current Task: {response.task}");
+                headBubble?.ShowThought("I remember...");
+                // 這裡不需要做什麼，只要確保 isThinking = false，
+                // 下一次 Update loop 就會自動發送新的感知數據繼續任務
+                isThinking = false;
+                return;
+            }
+
+            // 3. 正常的行動計畫
             if (response.plan != null && response.plan.Count > 0)
             {
+                Debug.Log($"[AI] Received Plan: {response.plan.Count} steps");
                 StartCoroutine(ExecutePlanRoutine(response.plan));
             }
             else
             {
+                // 收到空計畫，代表還在想，或是沒事做
                 isThinking = false; 
             }
         }
@@ -782,6 +806,9 @@ public class ExecutionTraceItem
 [Serializable]
 public class ServerResponse
 {
+    public string type;
+    public string error;
+
     public string client_id;
     public string task;
     public List<AgentActionData> plan;
