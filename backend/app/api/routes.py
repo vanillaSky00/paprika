@@ -46,69 +46,44 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
     
     try:
         while True:
-            # data = await websocket.receive_json()
+            data = await websocket.receive_json()
             
-            # try:
-            #     perception = Perception(**data)
-            #     logger.info(
-            #         f"👁️ Perception:\n \
-            #         time_hour: {perception.time_hour}\n \
-            #         day: {perception.day}\n \
-            #         mode: {perception.mode}\n \
-            #         location_id: {perception.location_id}\n \
-            #         player_nearby: {perception.player_nearby}\n \
-            #         nearby_objects: {perception.nearby_objects}\n \
-            #         held_item: {perception.held_item}\n \
-            #         last_action_status: {perception.last_action_status}\n \
-            #         last_action_error: {perception.last_action_error}\n")
-            # except Exception as e:
-            #     logger.warning(f"⚠️ Client #{client_id} sent invalid data: {e}")
-            #     await manager.send_personal_message({"error": "Invalid Data Schema"}, websocket)
-            #     continue
+            try:
+                perception = Perception(**data)
+
+                logger.warning(f"👁️ Agent {client_id} | Time {perception.self.time_hour}:00 | Loc: {perception.self.current_zone}")
+                logger.warning(f"📦 FULL PERCEPTION DATA:\n{perception.model_dump_json(indent=2)}")
+                
+            except Exception as e:
+                logger.warning(f"⚠️ Client #{client_id} sent invalid data: {e}")
+                await manager.send_personal_message({"error": "Invalid Data Schema"}, websocket)
+                continue
             
-            # initial_state = { 
-            #     "perception": perception,
-            #     "task": "Decide Next Task",
-            #     "skill_guide": "",
-            #     "plan": [],
-            #     "critique": None,
-            #     "retry_count": 0
-            # }
+            initial_state = { 
+                "perception": perception,
+                "task": "Decide Next Task",
+                "skill_guide": "",
+                "plan": [],
+                "critique": None,
+                "retry_count": 0
+            }
             
-            # final_state = await graph_app.ainvoke(initial_state)
+            final_state = await graph_app.ainvoke(initial_state)
             
-            # task_name = final_state.get("task", "Unknown")
-            # plan_json = [action.model_dump() for action in final_state.get("plan", [])]
+            task_name = final_state.get("task", "Unknown")
+            plan_json = [action.model_dump() for action in final_state.get("plan", [])]
             
-            # response = {
-            #     "client_id": client_id,
-            #     "task": task_name,
-            #     "plan": plan_json
-            # }
-            # logger.info(
-            #         f"👁️ Response to Unity:\n \
-            #         client_id: {response['client_id']}\n \
-            #         task: {response['task']}\n \
-            #         plan: {response['plan']}\n")
-            # await manager.send_personal_message(response, websocket)
             response = {
                 "client_id": client_id,
-                "task": "運送洋蔥 (ID 導航版)",
-                "plan": [
-                    {"thought_trace": "1. 前往洋蔥箱", "function": "move_to", "args": {"id": "OnionBox01"}},
-                    {"thought_trace": "2. 撿起洋蔥", "function": "pickup", "args": {"id": "Onion01"}},
-                    {"thought_trace": "3. 拿著洋蔥前往櫃檯", "function": "move_to", "args": {"id": "Counter01"}},
-                    {"thought_trace": "4. 把洋蔥放在櫃檯上", "function": "put_down", "args": {"id": "Counter01"}}
-                ]
+                "task": task_name,
+                "plan": plan_json
             }
-
-            logger.info(
+            logger.warning(
                     f"👁️ Response to Unity:\n \
                     client_id: {response['client_id']}\n \
                     task: {response['task']}\n \
                     plan: {response['plan']}\n")
             await manager.send_personal_message(response, websocket)
-            await asyncio.sleep(3)
         
     except WebSocketDisconnect:
         await manager.disconnect(websocket)
@@ -121,4 +96,4 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
             await websocket.close(code=1011)
         except RuntimeError:
             # Socket already closed
-            pass
+            pass 

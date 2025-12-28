@@ -92,8 +92,8 @@ class SkillAgent(BaseAgent):
             )
             
             
-            print(f"\n\n[LLM response]:{sop_resp}\n")
-            logger.info(f"\n\n[Skill Agent response]:{sop_resp}\n")
+            # print(f"\n\n[Skill LLM response]: Try to learn {sop_resp}\n")
+            logger.info(f"\n\n[Skill Agent response]:Try to learn {sop_resp}\n")
             
             data = self._parse_json_helper(sop_resp)
 

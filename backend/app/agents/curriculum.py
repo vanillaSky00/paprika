@@ -4,6 +4,7 @@ from app.api.schemas import Perception, CurriculumOutput, MemoryDTO
 from app.memory.base import BaseMemoryStore
 from app.llm.base import BaseLLMClient
 from app.agents.base import BaseAgent
+from app.agents.adapter import ObservationAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -39,11 +40,13 @@ class CurriculumAgent(BaseAgent):
         
         short_term_memories_str = ", ".join(self.recent_tasks[-5:]) or "None"
         
+        obj = ObservationAdapter(perception)
+        
         content = f"""
         --- CURRENT STATE ---
-        Location: {perception.location_id}
-        Inventory: {perception.held_item or "Empty"}
-        Status: Day {perception.day}, {perception.time_hour}:00
+        Location: {obj.location}
+        Inventory: {obj.inventory}
+        Status: Day {obj.time_display}
 
         --- RELEVANT MEMORIES (What I learned here before) ---
         {long_term_memories_str}
@@ -66,11 +69,13 @@ class CurriculumAgent(BaseAgent):
         # TODO: hard code check some basic status (Hunger, etc.)
         
         
+        obj = ObservationAdapter(perception)
+        
         # RAG
         query = (
-            f"Location: {perception.location_id}. "
-            f"Nearby: {', '.join([o.id for o in perception.nearby_objects])}. "
-            f"Holding: {perception.held_item}. "
+            f"Location: {obj.location}. "
+            f"Nearby: {obj.visual_summary}. "
+            f"Holding: {obj.inventory}. "
         ) 
         
         relavent_memory = await self.memory.fetch_similar(query=query, limit=self.memory_window_size)
@@ -87,7 +92,12 @@ class CurriculumAgent(BaseAgent):
         else:
             raise ValueError(f"Invalid curriculum agent mode: {self.mode}")
     
-    
+    def add_recent_task(self, task: str):
+        """Adds a completed task to short-term memory so we don't repeat it."""
+        self.recent_tasks.append(task)
+        if len(self.recent_tasks) > self.memory_window_size:
+            self.recent_tasks.pop(0)
+            
     async def __propose_next_ai_task(
         self,
         sys_msg,
@@ -108,7 +118,7 @@ class CurriculumAgent(BaseAgent):
                 user_message=human_msg
             )
             
-            print(f"\n\n[Curriculum Agent response]:{curriculum_resp}\n")
+            #print(f"\n\n[Curriculum Agent response]:{curriculum_resp}\n")
             logger.info(f"\n\n[Curriculum Agent response]:{curriculum_resp}\n")
             
             data = self._parse_json_helper(curriculum_resp)
@@ -129,7 +139,7 @@ class CurriculumAgent(BaseAgent):
             )
     
     def __propose_next_manual_task():
-        print("--- MANUAL TASK INPUT ---")
+        #print("--- MANUAL TASK INPUT ---")
         task = input("Enter Task: ").strip()
         reasoning = input("Enter Reasoning: ").strip()
         difficulty = input("Enter Difficulty: ").strip()

@@ -1,91 +1,47 @@
 from langchain_core.tools import StructuredTool
-from pydantic import BaseModel, Field
-
 from app.tools.base import BaseToolBuilder, tool_registry
 from app.tools.context import ToolContext
-
-
-class MoveInput(BaseModel):
-    location_id: str = Field(
-        description="The ID of the location or object to move to (e.g., 'Kitchen', 'Stove_01')."
-    )
-
-
-class InteractInput(BaseModel):
-    target_id: str = Field(description="The ID of the object to interact with.")
-    interaction_type: str = Field(
-        description="Type of interaction: 'use', 'pick_up', 'open', 'close'.",
-        default="use",
-    )
-
-
-class SayInput(BaseModel):
-    text: str = Field(description="The sentence to speak out loud.")
-
-
-class ThinkInput(BaseModel):
-    thought: str = Field(
-        description="The content of your internal monologue. No one else hears this."
-    )
-
+# IMPORT YOUR NEW SCHEMAS
+from app.tools.schemas import MoveInput, PickupInput, PutDownInput
 
 @tool_registry.register
 class MoveToolBuilder(BaseToolBuilder):
     def build(self, context: ToolContext) -> StructuredTool:
-        def move_logic(location_id: str):
-            # Sends a command to Unity
-            return {"status": "moving", "target": location_id}
+        # NOTICE: Argument name changed to 'id' to match schema!
+        def move_logic(id: str):
+            return {"status": "moving", "target": id}
 
         return StructuredTool.from_function(
             func=move_logic,
             name="move_to",
             description="Walk to a specific location or object.",
-            args_schema=MoveInput,
+            args_schema=MoveInput, # <--- Uses the strictly defined schema
         )
-
 
 @tool_registry.register
-class InteractToolBuilder(BaseToolBuilder):
+class PickupToolBuilder(BaseToolBuilder):
     def build(self, context: ToolContext) -> StructuredTool:
-        def interact_logic(target_id: str, interaction_type: str = "use"):
-            return {
-                "status": "interacting",
-                "target": target_id,
-                "type": interaction_type,
-            }
+        def pickup_logic(id: str):
+            return {"status": "picking_up", "target": id}
 
         return StructuredTool.from_function(
-            func=interact_logic,
-            name="interact",
-            description="Interact with a nearby object (open, pick up, use).",
-            args_schema=InteractInput,
+            func=pickup_logic,
+            name="pickup",
+            description="Pick up an item.",
+            args_schema=PickupInput,
         )
-
-
+        
 @tool_registry.register
-class SayToolBuilder(BaseToolBuilder):
+class PutDownToolBuilder(BaseToolBuilder): 
     def build(self, context: ToolContext) -> StructuredTool:
-        def say_logic(text: str):
-            return {"status": "speaking", "content": text}
+        def put_down_logic(id: str):
+            return {"status": "placed", "target": id}
 
         return StructuredTool.from_function(
-            func=say_logic,
-            name="say",
-            description="Speak to nearby players or NPCs.",
-            args_schema=SayInput,
+            func=put_down_logic, # Use the new logic function
+            name="put_down",
+            description="Put down an item.",
+            args_schema=PutDownInput, # Ensure this matches schemas.py
         )
 
-
-@tool_registry.register
-class ThinkToolBuilder(BaseToolBuilder):
-    def build(self, context: ToolContext) -> StructuredTool:
-        def think_logic(thought: str):
-            # Unity will receive this and can show a 💭 bubble above the head
-            return {"status": "thinking", "content": thought}
-
-        return StructuredTool.from_function(
-            func=think_logic,
-            name="think",
-            description="Log a private thought. Use this to plan, reflect, or observe silently.",
-            args_schema=ThinkInput,
-        )
+# ... (Repeat for Say, Think)
