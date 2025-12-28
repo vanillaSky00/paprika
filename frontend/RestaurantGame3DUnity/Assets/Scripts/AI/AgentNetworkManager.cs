@@ -243,7 +243,25 @@ public class AgentNetworkManager : MonoBehaviour
         // MeatBox / OnionBox
         else if (obj.TryGetComponent<ItemBox>(out ItemBox itemBox))
         {
-            state["is_empty"] = false; 
+            bool hasItem = (itemBox.PeekItem() != ItemType.NONE);
+
+            state["is_occupied"] = hasItem;
+            state["is_empty"] = !hasItem;
+
+            if (hasItem)
+            {
+                state["held_item"] = itemBox.PeekItem().ToString();
+            }
+            else
+            {
+                state["held_item"] = null;
+            }
+            
+            // 如果這是一個可以放東西的桌子，我們額外標記一下類型，幫助 LLM 決策
+            if (obj.name.Contains("Preparation") || obj.name.Contains("Table"))
+            {
+                 state["type"] = "Counter"; // 提示這是櫃台
+            }
         }
         // CutBoard
         else if (obj.TryGetComponent<SliceBoard>(out SliceBoard board))
