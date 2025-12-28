@@ -33,6 +33,15 @@ public class AgentNetworkManager : MonoBehaviour
 
     public string agentUUID;
 
+    private readonly Dictionary<string, string> itemNameMapping = new Dictionary<string, string>
+    {
+        { "SLICEDTOM",   "SLICED_TOMATO" },
+        { "SLICEDLET",   "SLICED_LETTUCE" },
+        { "SLICEDON",    "SLICED_ONION" },
+        { "SLICEDCHE",   "SLICED_CHEESE" },
+        { "SLICEDBREAD", "SLICED_BREAD" }
+        // 如果有其他需要翻譯的，直接加在這邊
+    };
     void Start()
     {
         // 遊戲開始，直接進入連線流程
@@ -182,7 +191,7 @@ public class AgentNetworkManager : MonoBehaviour
 
         // B. Sensory
         payload.sensory = BuildSensoryData();
-
+        payload.statistics = BuildStatisticsData();
         // C. Execution Trace (只傳最近 5 筆)
         if (traceHistory.Count > 5)
             payload.execution_trace = traceHistory.GetRange(traceHistory.Count - 5, 5);
@@ -192,7 +201,58 @@ public class AgentNetworkManager : MonoBehaviour
         string json = JsonConvert.SerializeObject(payload, Formatting.Indented);
         await websocket.SendText(json);
     }
+    // 修改後的統計邏輯：只算桌子，並合併數量
+    private StatisticsData BuildStatisticsData()
+    {
+        StatisticsData stats = new StatisticsData();
+        stats.table_items = new List<string>();
+        stats.table_item_count = 0;
 
+        // 用來暫存統計結果的字典 <物品名稱, 數量>
+        Dictionary<string, int> itemCounts = new Dictionary<string, int>();
+
+        // 搜尋場景中所有的 桌子/櫃台 (ItemBox)
+        ItemBox[] allBoxes = FindObjectsOfType<ItemBox>();
+        foreach (var box in allBoxes)
+        {
+            // 過濾：只算名字包含 Table, Preparation, Counter 的桌子
+            if (box.name.Contains("Preparation") || box.name.Contains("Table") || box.name.Contains("Counter"))
+            {
+                ItemType item = box.PeekItem();
+                
+                if (item != ItemType.NONE)
+                {
+                    // 1. 取得原始名稱 (例如 "SLICEDON")
+                    string rawName = item.ToString();
+                    
+                    // 2. 嘗試翻譯名稱
+                    // 如果字典裡有定義 (例如 SLICEDON)，就用字典的值 (SLICED_ONION)
+                    // 如果沒有定義 (例如 PLATE)，就維持原樣
+                    string finalName = itemNameMapping.ContainsKey(rawName) ? itemNameMapping[rawName] : rawName;
+
+                    // 3. 開始統計
+                    stats.table_item_count++;
+
+                    if (itemCounts.ContainsKey(finalName))
+                    {
+                        itemCounts[finalName]++;
+                    }
+                    else
+                    {
+                        itemCounts[finalName] = 1;
+                    }
+                }
+            }
+        }
+
+        // 將字典轉換成 "物品:數量" 的格式 (例如 "SLICED_ONION:2")
+        foreach (KeyValuePair<string, int> pair in itemCounts)
+        {
+            stats.table_items.Add($"{pair.Key}:{pair.Value}");
+        }
+
+        return stats;
+    }
     // ------------------------------------------------------------------------
     // 2. 構建 Self Data
     // ------------------------------------------------------------------------
@@ -650,7 +710,7 @@ public class AgentNetworkManager : MonoBehaviour
         AgentPayload payload = new AgentPayload();
         payload.self = BuildSelfData();
         payload.sensory = BuildSensoryData();
-
+        payload.statistics = BuildStatisticsData();
         // 2. 處理 Trace (為了測試，如果歷史是空的，我們塞一筆假的給你看)
         if (traceHistory.Count == 0)
         {
@@ -755,9 +815,18 @@ public class AgentPayload
 {
     public SelfData self;
     public SensoryData sensory;
+    public StatisticsData statistics;
     public List<ExecutionTraceItem> execution_trace;
 }
-
+[Serializable]
+public class StatisticsData
+{
+    // 總共有幾個東西在桌上
+    public int table_item_count;
+    
+    // 統計清單，格式為 ["SLICED_ONION:2", "PLATE:1"]
+    public List<string> table_items;   
+}
 [Serializable]
 public class SelfData
 {
