@@ -2,7 +2,7 @@ from langchain_core.tools import StructuredTool
 from app.tools.base import BaseToolBuilder, tool_registry
 from app.tools.context import ToolContext
 # IMPORT YOUR NEW SCHEMAS
-from app.tools.schemas import MoveInput, PickupInput, PutDownInput
+from app.tools.schemas import MoveInput, PickupInput, PutDownInput, CookInput, ChopInput
 
 @tool_registry.register
 class MoveToolBuilder(BaseToolBuilder):
@@ -43,5 +43,33 @@ class PutDownToolBuilder(BaseToolBuilder):
             description="Put down an item.",
             args_schema=PutDownInput, # Ensure this matches schemas.py
         )
+        
+        
+@tool_registry.register
+class CookToolBuilder(BaseToolBuilder):
+    def build(self, context: ToolContext) -> StructuredTool:
+        def cook_logic(id: str):
+            # 'id' should be the target object/item id (e.g., stove, pan, ingredient)
+            return {"status": "cooking", "target": id}
 
-# ... (Repeat for Say, Think)
+        return StructuredTool.from_function(
+            func=cook_logic,
+            name="cook",
+            description="Cook an item using an appliance (e.g., oven) or start a cooking process.",
+            args_schema=CookInput,
+        )
+
+
+@tool_registry.register
+class ChopToolBuilder(BaseToolBuilder):
+    def build(self, context: ToolContext) -> StructuredTool:
+        def chop_logic(id: str):
+            # 'id' should be the target ingredient/object id to chop
+            return {"status": "chopping", "target": id}
+
+        return StructuredTool.from_function(
+            func=chop_logic,
+            name="chop",
+            description="Chop an ingredient (usually requires to go cutboard and only chop vegetables).",
+            args_schema=ChopInput,
+        )

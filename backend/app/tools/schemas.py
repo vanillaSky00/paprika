@@ -21,6 +21,18 @@ class PutDownInput(BaseModel):
         description="The unique ID of the surface to place the item on (e.g., 'LettuceBox', 'TomatoBox')."
     )
 
+class ChopInput(BaseModel):
+    id: str = Field(
+        ...,
+        description="The unique ID of the ingredient/object to chop (e.g., 'Tomato', 'Lettuce')."
+    )
+
+class CookInput(BaseModel):
+    id: str = Field(
+        ...,
+        description="The unique ID of the item or appliance to cook with/on (e.g., 'Pan', 'Stove', 'SoupPot')."
+    )
+
 # class InteractInput(BaseModel):
 #     id: str = Field(..., description="The ID of the object to interact with.")
 #     interaction_type: str = Field(
