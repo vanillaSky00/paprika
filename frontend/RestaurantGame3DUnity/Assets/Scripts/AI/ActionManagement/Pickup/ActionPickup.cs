@@ -3,12 +3,14 @@ using System.Collections.Generic;
 
 [RequireComponent(typeof(Inventory))]
 [RequireComponent(typeof(AgentState))]
+[RequireComponent(typeof(AgentNetworkManager))] // 🔥 確保有 Manager
 public class ActionPickup : MonoBehaviour, IAgentAction
 {
     public string ActionName => "pickup";
 
     private Inventory inventory;
     private AgentState agentState;
+    private AgentNetworkManager networkManager; // 🔥 1. 新增變數
     
     [SerializeField] private float interactDistance = 2.5f;
 
@@ -16,6 +18,7 @@ public class ActionPickup : MonoBehaviour, IAgentAction
     {
         inventory = GetComponent<Inventory>();
         agentState = GetComponent<AgentState>();
+        networkManager = GetComponent<AgentNetworkManager>(); // 🔥 2. 抓取元件
     }
 
     public void Execute(Dictionary<string, object> args)
@@ -27,7 +30,11 @@ public class ActionPickup : MonoBehaviour, IAgentAction
 
         if (string.IsNullOrEmpty(targetName))
         {
-            agentState.ReportActionFinished(false, "Missing 'id' or 'name'");
+            string msg = "Missing 'id' or 'name'";
+            // 🔥 紀錄失敗
+            if (networkManager) networkManager.RecordActionTrace(ActionName, "Unknown", false, msg);
+            
+            agentState.ReportActionFinished(false, msg);
             return;
         }
 
@@ -37,7 +44,11 @@ public class ActionPickup : MonoBehaviour, IAgentAction
 
         if (targetObj == null)
         {
-            agentState.ReportActionFinished(false, $"Object '{targetName}' not found");
+            string msg = $"Object '{targetName}' not found";
+            // 🔥 紀錄失敗
+            if (networkManager) networkManager.RecordActionTrace(ActionName, targetName, false, msg);
+
+            agentState.ReportActionFinished(false, msg);
             return;
         }
 
@@ -45,7 +56,11 @@ public class ActionPickup : MonoBehaviour, IAgentAction
         float dist = Vector3.Distance(transform.position, targetObj.transform.position);
         if (dist > interactDistance)
         {
-            agentState.ReportActionFinished(false, $"Too far from {targetName} ({dist:F1}m)");
+            string msg = $"Too far from {targetName} ({dist:F1}m)";
+            // 🔥 紀錄失敗
+            if (networkManager) networkManager.RecordActionTrace(ActionName, targetName, false, msg);
+
+            agentState.ReportActionFinished(false, msg);
             return;
         }
 
@@ -56,11 +71,15 @@ public class ActionPickup : MonoBehaviour, IAgentAction
         {
             ItemType itemType = itemBox.GetItem();
 
-            // 關鍵修正：檢查箱子給的東西是不是 NONE
+            // 檢查箱子給的東西是不是 NONE
             if (itemType == ItemType.NONE)
             {
-                string msg = $"[ActionPickup] 失敗：{targetName} (ItemBox) 裡沒有東西，或者還在冷卻中！";
+                string msg = $"[ActionPickup] Failed: {targetName} (ItemBox) is empty or cool down!";
                 Debug.LogWarning(msg);
+                
+                // 🔥 紀錄失敗
+                if (networkManager) networkManager.RecordActionTrace(ActionName, targetName, false, msg);
+
                 agentState.ReportActionFinished(false, msg);
                 return;
             }
@@ -70,21 +89,31 @@ public class ActionPickup : MonoBehaviour, IAgentAction
             // 雙重檢查：確認 Inventory 真的拿到了
             if (inventory.CurrentType == ItemType.NONE)
             {
-                 agentState.ReportActionFinished(false, "Inventory failed to take item (Hand might be full?)");
-                 return;
+                string msg = "Inventory failed to take item (Hand might be full?)";
+                if (networkManager) networkManager.RecordActionTrace(ActionName, targetName, false, msg);
+
+                agentState.ReportActionFinished(false, msg);
+                return;
             }
 
             Debug.Log($"[ActionPickup] 成功從箱子撿起: {itemType}");
+            
+            // 🔥 紀錄成功
+            if (networkManager) networkManager.RecordActionTrace(ActionName, targetName, true, $"Picked up {itemType}");
+
             agentState.SetHeldItem(itemType.ToString());
             agentState.ReportActionFinished(true, $"Picked up {itemType}");
         }
         // --- 情況 B: 從砧板 (SliceBoard) 拿取 ---
         else if (targetObj.TryGetComponent<SliceBoard>(out SliceBoard board))
         {   
-
             if (board.CurrentType == ItemType.NONE)
             {
-                agentState.ReportActionFinished(false, $"The board {targetName} is empty!");
+                string msg = $"The board {targetName} is empty!";
+                // 🔥 紀錄失敗
+                if (networkManager) networkManager.RecordActionTrace(ActionName, targetName, false, msg);
+
+                agentState.ReportActionFinished(false, msg);
                 return;
             }
 
@@ -94,6 +123,10 @@ public class ActionPickup : MonoBehaviour, IAgentAction
             board.ClearObject(); // 拿走後要清空砧板
 
             Debug.Log($"[ActionPickup] 成功從砧板拿走: {itemOnBoard}");
+            
+            // 🔥 紀錄成功
+            if (networkManager) networkManager.RecordActionTrace(ActionName, targetName, true, $"Picked up {itemOnBoard}");
+
             agentState.SetHeldItem(itemOnBoard.ToString());
             agentState.ReportActionFinished(true, $"Picked up {itemOnBoard}");
         }
@@ -103,13 +136,18 @@ public class ActionPickup : MonoBehaviour, IAgentAction
             var childBox = targetObj.GetComponentInChildren<ItemBox>();
             if(childBox != null)
             {
-                 // 這裡簡化處理，直接遞迴調用或報錯提示
-                 agentState.ReportActionFinished(false, $"Found ItemBox on child of {targetName}, logic needs refinement.");
+                 string msg = $"Found ItemBox on child of {targetName}, logic needs refinement.";
+                 if (networkManager) networkManager.RecordActionTrace(ActionName, targetName, false, msg);
+                 agentState.ReportActionFinished(false, msg);
                  return;
             }
 
             string error = $"物件 '{targetName}' 上沒有 ItemBox 或 SliceBoard 元件，無法撿取！";
             Debug.LogError($"[ActionPickup] {error}");
+            
+            // 🔥 紀錄失敗
+            if (networkManager) networkManager.RecordActionTrace(ActionName, targetName, false, error);
+
             agentState.ReportActionFinished(false, error);
         }
     }

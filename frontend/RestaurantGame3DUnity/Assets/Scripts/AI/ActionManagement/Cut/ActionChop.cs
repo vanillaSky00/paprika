@@ -3,17 +3,21 @@ using System.Collections;
 using System.Collections.Generic;
 
 [RequireComponent(typeof(AgentState))]
+[RequireComponent(typeof(AgentNetworkManager))] // 🔥 確保有 Manager
 public class ActionChop : MonoBehaviour, IAgentAction
 {
-    public string ActionName => "chop";
+    // 如果你之前改成了 "cut"，這裡記得要對應改成 "cut"，否則 LLM 會找不到
+    public string ActionName => "chop"; 
 
     private AgentState agentState;
+    private AgentNetworkManager networkManager; // 🔥 1. 新增變數
     
     [SerializeField] private float interactDistance = 2.5f; 
 
     void Awake()
     {
         agentState = GetComponent<AgentState>();
+        networkManager = GetComponent<AgentNetworkManager>(); // 🔥 2. 抓取元件
     }
 
     public void Execute(Dictionary<string, object> args)
@@ -21,7 +25,11 @@ public class ActionChop : MonoBehaviour, IAgentAction
         // 1. 檢查參數
         if (!args.ContainsKey("id"))
         {
-            agentState.ReportActionFinished(false, "Missing 'id'");
+            string msg = "Missing 'id'";
+            // 🔥 紀錄失敗
+            if (networkManager) networkManager.RecordActionTrace(ActionName, "Unknown", false, msg);
+            
+            agentState.ReportActionFinished(false, msg);
             return;
         }
 
@@ -32,16 +40,24 @@ public class ActionChop : MonoBehaviour, IAgentAction
 
         if (targetObj == null)
         {
-            agentState.ReportActionFinished(false, $"Target '{targetId}' not found");
+            string msg = $"Target '{targetId}' not found";
+            // 🔥 紀錄失敗
+            if (networkManager) networkManager.RecordActionTrace(ActionName, targetId, false, msg);
+
+            agentState.ReportActionFinished(false, msg);
             return;
         }
 
         float dist = Vector3.Distance(transform.position, targetObj.transform.position);
         if (dist > interactDistance)
         {
-            string errorMsg = $"Too far from target! Distance: {dist:F1}m > Limit: {interactDistance}m";
-            Debug.LogWarning($"[ActionChop] {errorMsg}");
-            agentState.ReportActionFinished(false, errorMsg);
+            string msg = $"Too far from target! Distance: {dist:F1}m > Limit: {interactDistance}m";
+            Debug.LogWarning($"[ActionChop] {msg}");
+            
+            // 🔥 紀錄失敗
+            if (networkManager) networkManager.RecordActionTrace(ActionName, targetId, false, msg);
+            
+            agentState.ReportActionFinished(false, msg);
             return;
         }
 
@@ -54,15 +70,19 @@ public class ActionChop : MonoBehaviour, IAgentAction
 
         if (board == null)
         {
-            agentState.ReportActionFinished(false, $"Target {targetId} does not have SliceBoard script!");
+            string msg = $"Target {targetId} does not have SliceBoard script!";
+            // 🔥 紀錄失敗
+            if (networkManager) networkManager.RecordActionTrace(ActionName, targetId, false, msg);
+            
+            agentState.ReportActionFinished(false, msg);
             return;
         }
 
-        // 4. 開始切菜
-        StartCoroutine(ProcessRoutine(board));
+        // 4. 開始切菜 (🔥 把 targetId 傳進去，方便紀錄)
+        StartCoroutine(ProcessRoutine(board, targetId));
     }
 
-    private IEnumerator ProcessRoutine(SliceBoard board)
+    private IEnumerator ProcessRoutine(SliceBoard board, string targetId)
     {
         agentState.IsActionExecuting = true;
 
@@ -86,18 +106,27 @@ public class ActionChop : MonoBehaviour, IAgentAction
 
         if (resultItem != ItemType.NONE)
         {
+            string msg = $"Chopped into {resultItem}";
             Debug.Log($"[ActionChop] 加工完成！獲得: {resultItem}");
 
             // 更新桌上的視覺模型
             board.ClearObject();      
             board.PutItem(resultItem); 
 
-            agentState.ReportActionFinished(true, $"Chopped into {resultItem}");
+            // 🔥 紀錄成功
+            if (networkManager) networkManager.RecordActionTrace(ActionName, targetId, true, msg);
+
+            agentState.ReportActionFinished(true, msg);
         }
         else
         {
-            Debug.LogWarning("[ActionChop] 加工失敗或超時");
-            agentState.ReportActionFinished(false, "Process failed or timed out");
+            string msg = "Process failed or timed out";
+            Debug.LogWarning("[ActionChop] " + msg);
+            
+            // 🔥 紀錄失敗
+            if (networkManager) networkManager.RecordActionTrace(ActionName, targetId, false, msg);
+
+            agentState.ReportActionFinished(false, msg);
         }
 
         agentState.IsActionExecuting = false;
