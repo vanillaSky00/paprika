@@ -69,6 +69,7 @@ public class AgentNetworkManager : MonoBehaviour
     {
         #if !UNITY_WEBGL || UNITY_EDITOR
             websocket.DispatchMessageQueue();
+            websocket.DispatchMessageQueue();
         #endif
     }
 
@@ -151,6 +152,7 @@ public class AgentNetworkManager : MonoBehaviour
         else
         {
             // 這裡賦值字串 "none"，也是合法的，因為目標是 object
+            data.held_item = null;
             data.held_item = null;
         }
 
@@ -405,6 +407,11 @@ public class AgentNetworkManager : MonoBehaviour
         string tableLocation = "Preparation"; 
 
         if (GameObject.Find(ovenLocation) == null)
+        string meatSource = "MeatBox";      
+        string ovenLocation = "Oven";       
+        string tableLocation = "Preparation"; 
+
+        if (GameObject.Find(ovenLocation) == null)
         {
             Debug.LogError($"[Test Error] Cannot find '{ovenLocation}'!");
             return;
@@ -631,6 +638,7 @@ public class SelfData
     public int time_hour;
     public string current_zone; 
     public string status;       
+    public HeldItemData held_item;
     public HeldItemData held_item;
 }
 

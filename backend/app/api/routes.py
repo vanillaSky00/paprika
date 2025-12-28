@@ -44,6 +44,13 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
     """
     await manager.connect(websocket)
     
+    session_state = {
+        "task": "Decide Next Task",
+        "plan": [],
+        "retry_count": 0,
+        "skill_guide": ""
+    }
+    
     try:
         while True:
             data = await websocket.receive_json()
@@ -61,14 +68,21 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
             
             initial_state = { 
                 "perception": perception,
-                "task": "Decide Next Task",
-                "skill_guide": "",
-                "plan": [],
+                "task": session_state["task"],
+                "skill_guide": session_state["skill_guide"],
+                "plan": session_state["plan"],
                 "critique": None,
-                "retry_count": 0
+                "retry_count": session_state["retry_count"]
             }
             
             final_state = await graph_app.ainvoke(initial_state)
+            
+            # --- UPDATE SESSION STATE ---
+            # Save the new task/plan so we remember it next time
+            session_state["task"] = final_state.get("task", "Decide Next Task")
+            session_state["plan"] = final_state.get("plan", [])
+            session_state["retry_count"] = final_state.get("retry_count", 0)
+            session_state["skill_guide"] = final_state.get("skill_guide", "")
             
             task_name = final_state.get("task", "Unknown")
             plan_json = [action.model_dump() for action in final_state.get("plan", [])]
