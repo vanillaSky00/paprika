@@ -407,11 +407,6 @@ public class AgentNetworkManager : MonoBehaviour
         string tableLocation = "Preparation"; 
 
         if (GameObject.Find(ovenLocation) == null)
-        string meatSource = "MeatBox";      
-        string ovenLocation = "Oven";       
-        string tableLocation = "Preparation"; 
-
-        if (GameObject.Find(ovenLocation) == null)
         {
             Debug.LogError($"[Test Error] Cannot find '{ovenLocation}'!");
             return;
@@ -638,7 +633,6 @@ public class SelfData
     public int time_hour;
     public string current_zone; 
     public string status;       
-    public HeldItemData held_item;
     public HeldItemData held_item;
 }
 
