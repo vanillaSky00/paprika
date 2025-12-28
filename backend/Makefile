@@ -2,7 +2,7 @@
 PY := uv run
 PYTEST_ARGS ?=
 
-.PHONY: test test-all lint format fix update-tapes ci help
+.PHONY: test test-all lint format fix update-tapes ci help migration migrate
 
 help:
 	@echo "make lint         - ruff check (read-only)"
@@ -49,3 +49,19 @@ update-tapes:
 # make test PYTEST_ARGS=-s
 # make test PYTEST_ARGS="-s -vv"
 # make test PYTEST_ARGS="-k weather"
+
+# ------------------------------------------------------------------
+# DB Migrations (Docker Integration)
+# ------------------------------------------------------------------
+
+# 1. GENERATE the script (Run this when you change models.py)
+# Usage: make migration msg="add skills table"
+migration:
+	# ✅ FIX 2: Safety check for empty message
+	@test -n "$(msg)" || (echo "Error: msg is undefined. Usage: make migration msg='your message'"; exit 1)
+	docker compose exec agent-runtime alembic revision --autogenerate -m "$(msg)"
+
+# 2. APPLY the changes (Run this if you want to update DB without restarting)
+# Usage: make migrate
+migrate:
+	docker compose exec agent-runtime alembic upgrade head

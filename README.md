@@ -10,3 +10,27 @@
 
 **Paprika** is an experimental AI Agent framework designed to simulate embodied cognition in a 3D environment. It decouples the **"Brain"** (a LangGraph-based Python backend) from the **"Body"** (Unity Engine), allowing agents to learn, plan, and execute complex procedural tasks (like cooking) through a WebSocket bridge.
 
+# How to get start
+```
+# LLM
+OPENAI_API_KEY=<Your_key>
+
+OLLAMA_BASE_URL=https://api-gateway.netdb.csie.ncku.edu.tw
+OLLAMA_API_KEY=5<Your_key>
+OLLAMA_MODEL=gemma3:4b 
+
+
+# LangSmith Configuration
+LANGCHAIN_TRACING_V2=true
+LANGCHAIN_ENDPOINT=https://api.smith.langchain.com
+LANGCHAIN_API_KEY=<Your_key>
+LANGCHAIN_PROJECT=paprika-agent
+
+
+# OpenWeather Configuration
+OPENWEATHER_API_KEY=<Your_key>
+OPENWEATHER_BASE_URL=https://api.openweathermap.org
+
+
+# Grafana monitor
+```
