@@ -4,6 +4,7 @@ import logging
 from langchain_core.messages import HumanMessage
 from langchain_core.tools import StructuredTool
 
+from app.agents.adapter import ObservationAdapter
 from app.api.schemas import AgentAction, Perception
 from app.llm.base import BaseLLMClient
 from app.agents.base import BaseAgent
@@ -25,6 +26,7 @@ class ActionAgent(BaseAgent):
         *,
         perception: Perception,
         current_task,
+        skill_guide="",
         last_plan="",
         critique="",
     ) -> HumanMessage:
@@ -32,25 +34,32 @@ class ActionAgent(BaseAgent):
         The eyes of LLM: the 'Context' construction, tell llm what happened
         """
 
-        items = [f"{o.id}({o.state})" for o in perception.nearby_objects]
-
-        if items:
-            visuals = f"I can see: {', '.join(items)}"
-        else:
-            visuals = "I see nothing interactable nearby"
+        obs = ObservationAdapter(perception)
 
         # Make status
         content = f"""
         --- OBSERVATION ---
-        Time: {perception.time_hour}:00
-        Location: {perception.location_id}
-        Holding: {perception.held_item or "Nothing"}
-        Visible: {visuals}
-
+        Time: {obs.time_display}
+        Location: {obs.location}
+        Holding: {obs.inventory}
+        Visible: {obs.visual_summary}
+        Last Action: {obs.last_execution_summary}
+        
         --- TASK ---
         Current Goal: {current_task}
         """
 
+        # Cold(1st) Start and Warm(2nd and later) Start
+        # The ActionAgent doesn’t need pre-stored skills in memory—it can improvise and figure out how to act on the fly.
+        if skill_guide:
+            content += f"""
+            --- SUGGESTED PROCEDURE (MEMORY) ---
+            I have done this task before. Here is the guide:
+            {skill_guide}
+            
+            INSTRUCTION: Follow the guide if it matches the current situation.
+            """
+        
         # Voyager Feedback Loop
         if last_plan and critique:
             content += f"""
@@ -69,6 +78,7 @@ class ActionAgent(BaseAgent):
         *,
         perception: Perception,
         current_task,
+        skill_guide="",
         last_plan="",
         critique="",
     ) -> list[AgentAction]:
@@ -80,6 +90,7 @@ class ActionAgent(BaseAgent):
             user_message=self.render_human_message(
                 perception=perception,
                 current_task=current_task,
+                skill_guide=skill_guide,
                 last_plan=last_plan,
                 critique=critique,
             ).content,

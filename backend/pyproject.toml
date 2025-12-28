@@ -5,6 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "alembic>=1.17.2",
     "asyncpg>=0.31.0",
     "fastapi>=0.124.0",
     "greenlet>=3.3.0",
@@ -17,8 +18,9 @@ dependencies = [
     "psycopg2-binary>=2.9.11",
     "pydantic>=2.12.5",
     "pydantic-settings>=2.12.0",
+    "redis>=7.1.0",
     "sqlalchemy>=2.0.44",
-    "uvicorn>=0.38.0",
+    "uvicorn[standard]>=0.38.0", # if only uvicorn then only http but not websocket
 ]
 
 [dependency-groups]

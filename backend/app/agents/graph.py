@@ -16,7 +16,8 @@ from app.api.schemas import Perception, AgentAction, CriticOutput
 
 logger = logging.getLogger(__name__)
 
-llm = get_llm("openai", "gpt-4.1-mini")
+openai_llm = get_llm("openai", "gpt-4.1-mini")
+ollama_llm = get_llm("ollama", "gemma3:4b")
 
 session_factory = get_session_factory()
 memory_store = PostgresMemoryStore(session_factory)
@@ -28,23 +29,23 @@ tool_context = ToolContext(
 tools = tool_registry.build_all(tool_context)
 
 curriculum_agent = CurriculumAgent(
-    llm=llm,
-    qa_llm=llm,
+    llm=openai_llm,
+    qa_llm=ollama_llm,
     memory_store=memory_store
 )
 
 skill_agent = SkillAgent(
-    llm=llm,
+    llm=ollama_llm,
     memory_store=memory_store,
 )
 
 action_agent = ActionAgent(
-    llm=llm,
+    llm=openai_llm,
     tools=tools
 )
 
 critic_agent = CriticAgent(
-    llm=llm
+    llm=openai_llm
 )
 
 
@@ -88,10 +89,12 @@ async def action_node(state: AgentState):
     
     last_plan = [a.model_dump() for a in state['plan']] if state['plan'] else ""
     critic_text = state['critique'].feedback if state['critique'] else ""
+    skill_guide = state.get("skill_guide", "")
     
     plan = await action_agent.generate_plan(
         perception=state['perception'],
         current_task=state['task'],
+        skill_guide=skill_guide,
         last_plan=last_plan,
         critique=critic_text
     )
@@ -114,6 +117,17 @@ async def critic_node(state: AgentState):
         "retry_count": state['retry_count'] + 1
     }
 
+async def failure_node(state: AgentState):
+    logger.warning(f"--- 💀 FAILURE: Giving up on '{state['task']}' ---")
+    
+    curriculum_agent.add_history(state['task'], "Failed")
+    
+    # Reset state for the next fresh attempt
+    return {
+        "plan": [],
+        "retry_count": 0,
+        "critique": None
+    }
 
 async def learning_node(state: AgentState):
     logger.info("--- 🎓 LEARNING: Saving to Long-Term Memory... ---")
@@ -126,8 +140,21 @@ async def learning_node(state: AgentState):
         success=True,
     )
     
+    curriculum_agent.add_history(state['task'], "Success")
+    
     return {}
 
+def entry_router(state: AgentState):
+    """
+    Decide where to start based on if this is "first run" or not from unity?
+    """
+    
+    current_task = state.get("task", "")
+    
+    if not current_task or current_task == "Decide Next Task":
+        return "curriculum"
+    
+    return "critic"
 
 def decide_next_node(state: AgentState):
     """
@@ -138,13 +165,13 @@ def decide_next_node(state: AgentState):
     if critique.success:
         return "learning"
     
-    elif state['retry_count'] <= 3:
-        logger.warning(f"⚠️ Failed. Retrying ({state['retry_count']}/3)...")
+    elif state['retry_count'] <= 2:
+        logger.warning(f"⚠️ Failed. Retrying ({state['retry_count']}/2)...")
         return "action"
     
     else:
         logger.error("❌ Too many failures. Giving up.")
-        return "curriculum"
+        return "failure"
 
 
 workflow = StateGraph(AgentState)
@@ -155,11 +182,21 @@ workflow.add_node("action", action_node)
 workflow.add_node("critic", critic_node)
 workflow.add_node("learning", learning_node)
 
-workflow.set_entry_point("curriculum")
+
+workflow.set_conditional_entry_point(
+    entry_router,
+    {
+        "curriculum": "curriculum",
+        "critic": "critic"
+    }
+)
 
 workflow.add_edge("curriculum", "skill")
 workflow.add_edge("skill", "action")
-workflow.add_edge("action", "critic")
+workflow.add_node("failure", failure_node)
+
+# Action goes to END (stops Python), so Unity can run the plan.
+workflow.add_edge("action", END)
 
 workflow.add_conditional_edges(
     "critic",
@@ -167,10 +204,10 @@ workflow.add_conditional_edges(
     {
         "learning": "learning",
         "action": "action",
-        "curriculum": "curriculum"
+        "failure": "failure"
     }
 )
-
+workflow.add_edge("failure", "curriculum") # <--- Loop back to try a NEW task
 workflow.add_edge("learning", "curriculum")
 
 graph_app = workflow.compile()

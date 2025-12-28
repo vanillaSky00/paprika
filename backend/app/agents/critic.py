@@ -3,6 +3,7 @@ from langchain_core.messages import HumanMessage
 from app.api.schemas import Perception, CriticOutput
 from app.llm.base import BaseLLMClient
 from app.agents.base import BaseAgent
+from app.agents.adapter import ObservationAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -26,23 +27,24 @@ class CriticAgent(BaseAgent):
         """
         Compare the TASK (Goal) vs. the OBSERVATION (Result).
         """
-        visible_objects = ", ".join(
-            [f"{o.id}({o.state})" for o in perception.nearby_objects]
-        ) or "None"
+        obj = ObservationAdapter(perception)
         
         content = f"""
         --- GOAL ---
         {current_task}
 
         --- CURRENT STATE ---
-        Location: {perception.location_id}
-        Holding: {perception.held_item or "Nothing"}
-        Visible Objects: {visible_objects}
+        Location: {obj.location}
+        Holding: {obj.inventory}
+        Visible Objects: {obj.visual_summary}
         
+        --- SUPPLY CHECK (Truth from prep table) ---
+        {obj.prepared_items_summary}
+
         --- SYSTEM FEEDBACK ---
-        Last Action Status: {perception.last_action_status or "None"}
-        Last Error: {perception.last_action_error or "None"}
+        Last Action Status: {obj.last_execution_summary}
         """
+        
         return HumanMessage(content=content)
     
     # Check entry point, act as router 

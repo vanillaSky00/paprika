@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field
 from app.config import settings
 from app.deps import get_llm
 
-
+@pytest.mark.paid
 @pytest.mark.asyncio
 @pytest.mark.skipif(
     not settings.OLLAMA_API_KEY,
@@ -18,7 +18,7 @@ async def test_ollama_simple_text():
     try:
         client = get_llm("ollama", settings.OLLAMA_MODEL)
         print(f"\n[Info] Connecting to: {settings.OLLAMA_BASE_URL}")
-        print(f"[Info] Model: {settings.LLM_MODEL}")
+        print(f"[Info] Model: {settings.OLLAMA_MODEL}")
 
         result = await client.generate_response(
             system_prompt="You are a helpful bot.",

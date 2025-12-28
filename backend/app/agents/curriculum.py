@@ -4,6 +4,7 @@ from app.api.schemas import Perception, CurriculumOutput, MemoryDTO
 from app.memory.base import BaseMemoryStore
 from app.llm.base import BaseLLMClient
 from app.agents.base import BaseAgent
+from app.agents.adapter import ObservationAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +15,7 @@ class CurriculumAgent(BaseAgent):
         llm: BaseLLMClient, 
         qa_llm: BaseLLMClient,
         memory_store: BaseMemoryStore,
-        memory_window_size: int=5,
+        memory_window_size: int=10,
         template_name="curriculum", 
         tools=None,
         mode="auto",
@@ -23,7 +24,7 @@ class CurriculumAgent(BaseAgent):
         self.qa_llm = qa_llm
         self.memory = memory_store
         self.memory_window_size = memory_window_size
-        self.recent_tasks = [] # short-term buffer (last 5 task)
+        self.recent_history = [] # {'task': str, 'result': str}
         self.mode = mode
 
     def render_human_message(        
@@ -37,19 +38,32 @@ class CurriculumAgent(BaseAgent):
         else:
             long_term_memories_str = "No relavent memories found."
         
-        short_term_memories_str = ", ".join(self.recent_tasks[-5:]) or "None"
+        # about success and failed actions in short-term memory
+        history_str = ""
+        if self.recent_history:
+            history_str = "\n".join(
+                [f"- {item['task']} ({item['result']})" for item in self.recent_history[-5:]]
+            )
+        else:
+            history_str = "None"
+        
+        
+        obj = ObservationAdapter(perception)
         
         content = f"""
         --- CURRENT STATE ---
-        Location: {perception.location_id}
-        Inventory: {perception.held_item or "Empty"}
-        Status: Day {perception.day}, {perception.time_hour}:00
+        Location: {obj.location}
+        Inventory: {obj.inventory}
+        Status: Day {obj.time_display}
 
         --- RELEVANT MEMORIES (What I learned here before) ---
         {long_term_memories_str}
-
-        --- RECENT ACTION HISTORY ---
-        {short_term_memories_str}
+        
+        --- SUPPLY CHECK (What is already on the table?) ---
+        {obj.prepared_items_summary}
+        
+        --- RECENT ACTION HISTORY (Do not repeat failed tasks) ---
+        {history_str}
 
         Based on my past memories and current state, what is the best next task?
         """
@@ -66,11 +80,13 @@ class CurriculumAgent(BaseAgent):
         # TODO: hard code check some basic status (Hunger, etc.)
         
         
+        obj = ObservationAdapter(perception)
+        
         # RAG
         query = (
-            f"Location: {perception.location_id}. "
-            f"Nearby: {', '.join([o.id for o in perception.nearby_objects])}. "
-            f"Holding: {perception.held_item}. "
+            f"Location: {obj.location}. "
+            f"Nearby: {obj.visual_summary}. "
+            f"Holding: {obj.inventory}. "
         ) 
         
         relavent_memory = await self.memory.fetch_similar(query=query, limit=self.memory_window_size)
@@ -87,7 +103,12 @@ class CurriculumAgent(BaseAgent):
         else:
             raise ValueError(f"Invalid curriculum agent mode: {self.mode}")
     
-    
+    def add_history(self, task: str, result: str):
+        """Records both Success and Failure"""
+        self.recent_history.append({"task": task, "result": result})
+        if len(self.recent_history) > self.memory_window_size:
+            self.recent_history.pop(0)
+            
     async def __propose_next_ai_task(
         self,
         sys_msg,
@@ -108,7 +129,7 @@ class CurriculumAgent(BaseAgent):
                 user_message=human_msg
             )
             
-            print(f"\n\n[Curriculum Agent response]:{curriculum_resp}\n")
+            #print(f"\n\n[Curriculum Agent response]:{curriculum_resp}\n")
             logger.info(f"\n\n[Curriculum Agent response]:{curriculum_resp}\n")
             
             data = self._parse_json_helper(curriculum_resp)
@@ -129,7 +150,7 @@ class CurriculumAgent(BaseAgent):
             )
     
     def __propose_next_manual_task():
-        print("--- MANUAL TASK INPUT ---")
+        #print("--- MANUAL TASK INPUT ---")
         task = input("Enter Task: ").strip()
         reasoning = input("Enter Reasoning: ").strip()
         difficulty = input("Enter Difficulty: ").strip()
@@ -144,5 +165,6 @@ class CurriculumAgent(BaseAgent):
         pass
     
     #TODO handle qa system
-    def run_qa():
+    def run_qa(self):
+        # self.qa_llm.generate_response()
         pass
