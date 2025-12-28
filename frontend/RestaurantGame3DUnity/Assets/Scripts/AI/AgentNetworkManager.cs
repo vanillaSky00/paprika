@@ -151,7 +151,7 @@ public class AgentNetworkManager : MonoBehaviour
         else
         {
             // 這裡賦值字串 "none"，也是合法的，因為目標是 object
-            data.held_item = "none";
+            data.held_item = null;
         }
 
         return data;
@@ -242,7 +242,7 @@ public class AgentNetworkManager : MonoBehaviour
             if (board.CurrentType != ItemType.NONE)
                 state["occupied_by"] = board.CurrentType.ToString(); 
             else
-                state["occupied_by"] = "none";
+                state["occupied_by"] = null;
         }
         // Plate
         else if (obj.name.Contains("Plate"))
@@ -631,7 +631,7 @@ public class SelfData
     public int time_hour;
     public string current_zone; 
     public string status;       
-    public object held_item;
+    public HeldItemData held_item;
 }
 
 [Serializable]
