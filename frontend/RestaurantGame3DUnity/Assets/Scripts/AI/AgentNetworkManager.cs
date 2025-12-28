@@ -12,7 +12,7 @@ public class AgentNetworkManager : MonoBehaviour
 
     [Header("Components")]
     public AgentState agentState;
-    public AgentNearby agentNearby; // 用來取得視覺半徑參數
+    public AgentNearby agentNearby;
     public ActionDispatcher actionDispatcher;
 
     [Header("Connection Config")]
@@ -27,49 +27,140 @@ public class AgentNetworkManager : MonoBehaviour
 
     private WebSocket websocket;
     private bool isThinking = false;
+    // reconnecting
+    private bool isReconnecting = false;
+    public float reconnectInterval = 3.0f;
 
-    async void Start()
+    public string agentUUID;
+
+    private readonly Dictionary<string, string> itemNameMapping = new Dictionary<string, string>
     {
+        { "SLICEDTOM",   "SLICED_TOMATO" },
+        { "SLICEDLET",   "SLICED_LETTUCE" },
+        { "SLICEDON",    "SLICED_ONION" },
+        { "SLICEDCHE",   "SLICED_CHEESE" },
+        { "SLICEDBREAD", "SLICED_BREAD" }
+        // 如果有其他需要翻譯的，直接加在這邊
+    };
+    void Start()
+    {
+        // 遊戲開始，直接進入連線流程
+        if (string.IsNullOrEmpty(agentUUID))
+        {
+            agentUUID = System.Guid.NewGuid().ToString();
+        }
+        else
+        {
+            Debug.Log($"[AI] Using existing Agent UUID: {agentUUID}");
+        }
+        InitConnection();
+    }
+
+    // 這是核心連線函式，每次重連都會呼叫這裡
+    async void InitConnection()
+    {
+        // 避免重複建立 WebSocket 實例
+        if (websocket != null && (websocket.State == WebSocketState.Open || websocket.State == WebSocketState.Connecting)) 
+            return;
+
         try
         {
-            string uuid = System.Guid.NewGuid().ToString();
-            string fullUrl = $"{serverUrl}{uuid}"; 
+            string fullUrl = $"{serverUrl}{agentUUID}"; 
             
-            headBubble?.ShowThought("Connecting...");
-            Debug.Log($"[AI] Connecting to: {fullUrl}");
+            // UI 顯示
+            if(!isReconnecting) headBubble?.ShowThought("Connecting...");
+            Debug.Log($"[AI] Attempting connection to: {fullUrl}");
             
+            // 建立新的 WebSocket 實例
             websocket = new WebSocket(fullUrl);
 
+            // --- 1. 連線成功 ---
             websocket.OnOpen += () => {
                 Debug.Log("<color=green>[AI] Connected!</color>");
-                headBubble?.ShowThought("Connected!");
-                StartCoroutine(AgentLoopRoutine());
+                headBubble?.ShowThought("Online");
+                
+                // 重置重連旗標
+                isReconnecting = false;
+                
+                // 確保感知迴圈有在跑
+                StopCoroutine("AgentLoopRoutine");
+                StartCoroutine("AgentLoopRoutine");
             };
 
+            // --- 2. 發生錯誤 ---
             websocket.OnError += (e) => {
-                Debug.LogError($"[AI] Error: {e}");
-                headBubble?.ShowThought("Connection Failed");
+                // Error 通常也會觸發 OnClose，所以主要邏輯寫在 OnClose 即可
+                Debug.LogError($"[AI] WebSocket Error: {e}");
             };
             
+            // --- 3. 斷線偵測 (中途斷線) ---
             websocket.OnMessage += (bytes) =>
             {
                 string message = System.Text.Encoding.UTF8.GetString(bytes);
                 HandleServerResponse(message);
             };
 
+            // 關鍵：註冊 OnClose 事件來觸發重連
+            websocket.OnClose += (e) => 
+            {
+                Debug.LogWarning($"[AI] Disconnected! Code: {e}");
+                // 觸發重連機制
+                StartReconnectProcess();
+            };
+
+            // 發送連線請求
             await websocket.Connect();
         }
         catch (System.Exception e)
         {
-            Debug.LogError($"[AI] Critical failure: {e.Message}");
+            // --- 4. 起初連線失敗 (例如伺服器根本沒開) ---
+            Debug.LogError($"[AI] Connection failed immediately: {e.Message}");
+            StartReconnectProcess();
         }
+    }
+
+    // 觸發重連的入口
+    void StartReconnectProcess()
+    {
+        // 如果已經在重連中，就不要重複啟動 Coroutine
+        if (!isReconnecting)
+        {
+            isReconnecting = true;
+            headBubble?.ShowThought("Reconnecting...");
+            StartCoroutine(ReconnectRoutine());
+        }
+    }
+
+    // 無限重試
+    IEnumerator ReconnectRoutine()
+    {
+        Debug.Log($"[AI] Will reconnect in {reconnectInterval} seconds...");
+        
+        // 等待指定秒數
+        yield return new WaitForSeconds(reconnectInterval);
+
+        // 再次嘗試連線
+        // 注意：這裡不需要把 isReconnecting 設為 false
+        // 因為如果這次 InitConnection 又失敗，它會再次觸發 Catch -> StartReconnectProcess
+        // 如果成功，OnOpen 會把 isReconnecting 設為 false
+        InitConnection();
+        
+        // 如果 InitConnection 裡面的 await Connect() 失敗進入 catch，
+        // 或是連上瞬間又斷掉觸發 OnClose，
+        // StartReconnectProcess 會因為 isReconnecting == true 而被擋下？
+        // 不對，所以這裡必須要有一個機制允許下一次重連。
+        
+        // 修正邏輯：
+        // 其實最簡單的方式是：只要這邊呼叫完 InitConnection，我們就暫時解除鎖定，讓 InitConnection 內部的失敗能再次觸發
+        // 但更好的做法是：讓 InitConnection 失敗時再次呼叫 StartReconnectProcess，但 StartReconnectProcess 判斷的是「是否已經有 Coroutine 在跑」
+        // 為了簡化，我們採用「執行完等待」後，直接將 flag 重置，讓下一次失敗可以再次觸發 Coroutine。
+        isReconnecting = false; 
     }
 
     void Update()
     {
         #if !UNITY_WEBGL || UNITY_EDITOR
-            websocket.DispatchMessageQueue();
-            websocket.DispatchMessageQueue();
+            if(websocket != null) websocket.DispatchMessageQueue();
         #endif
     }
 
@@ -77,7 +168,8 @@ public class AgentNetworkManager : MonoBehaviour
     {
         while (true)
         {
-            if (websocket.State == WebSocketState.Open && !isThinking)
+            // 只有在連線狀態為 Open 時才發送資料
+            if (websocket != null && websocket.State == WebSocketState.Open && !isThinking)
             {
                 SendPerception();
             }
@@ -99,7 +191,7 @@ public class AgentNetworkManager : MonoBehaviour
 
         // B. Sensory
         payload.sensory = BuildSensoryData();
-
+        payload.statistics = BuildStatisticsData();
         // C. Execution Trace (只傳最近 5 筆)
         if (traceHistory.Count > 5)
             payload.execution_trace = traceHistory.GetRange(traceHistory.Count - 5, 5);
@@ -109,7 +201,58 @@ public class AgentNetworkManager : MonoBehaviour
         string json = JsonConvert.SerializeObject(payload, Formatting.Indented);
         await websocket.SendText(json);
     }
+    // 修改後的統計邏輯：只算桌子，並合併數量
+    private StatisticsData BuildStatisticsData()
+    {
+        StatisticsData stats = new StatisticsData();
+        stats.table_items = new List<string>();
+        stats.table_item_count = 0;
 
+        // 用來暫存統計結果的字典 <物品名稱, 數量>
+        Dictionary<string, int> itemCounts = new Dictionary<string, int>();
+
+        // 搜尋場景中所有的 桌子/櫃台 (ItemBox)
+        ItemBox[] allBoxes = FindObjectsOfType<ItemBox>();
+        foreach (var box in allBoxes)
+        {
+            // 過濾：只算名字包含 Table, Preparation, Counter 的桌子
+            if (box.name.Contains("Preparation") || box.name.Contains("Table") || box.name.Contains("Counter"))
+            {
+                ItemType item = box.PeekItem();
+                
+                if (item != ItemType.NONE)
+                {
+                    // 1. 取得原始名稱 (例如 "SLICEDON")
+                    string rawName = item.ToString();
+                    
+                    // 2. 嘗試翻譯名稱
+                    // 如果字典裡有定義 (例如 SLICEDON)，就用字典的值 (SLICED_ONION)
+                    // 如果沒有定義 (例如 PLATE)，就維持原樣
+                    string finalName = itemNameMapping.ContainsKey(rawName) ? itemNameMapping[rawName] : rawName;
+
+                    // 3. 開始統計
+                    stats.table_item_count++;
+
+                    if (itemCounts.ContainsKey(finalName))
+                    {
+                        itemCounts[finalName]++;
+                    }
+                    else
+                    {
+                        itemCounts[finalName] = 1;
+                    }
+                }
+            }
+        }
+
+        // 將字典轉換成 "物品:數量" 的格式 (例如 "SLICED_ONION:2")
+        foreach (KeyValuePair<string, int> pair in itemCounts)
+        {
+            stats.table_items.Add($"{pair.Key}:{pair.Value}");
+        }
+
+        return stats;
+    }
     // ------------------------------------------------------------------------
     // 2. 構建 Self Data
     // ------------------------------------------------------------------------
@@ -215,7 +358,7 @@ public class AgentNetworkManager : MonoBehaviour
         return "Interactable";
     }
 
-    // 🔥 核心：取得物件的詳細狀態
+    // 核心：取得物件的詳細狀態
     private Dictionary<string, object> GetObjectDetailedState(GameObject obj)
     {
         var state = new Dictionary<string, object>();
@@ -303,12 +446,36 @@ public class AgentNetworkManager : MonoBehaviour
         try
         {
             ServerResponse response = JsonConvert.DeserializeObject<ServerResponse>(json);
+
+            // 1. 優先檢查是否有錯誤
+            if (!string.IsNullOrEmpty(response.error))
+            {
+                Debug.LogError($"[AI Server Error] {response.error}");
+                headBubble?.ShowThought("Brain Error...");
+                isThinking = false; // 發生錯誤就讓 AI 重新思考
+                return;
+            }
+
+            // 2. 檢查是否為重連通知
+            if (response.type == "RESUMED")
+            {
+                Debug.Log($"[AI] Session Resumed! Current Task: {response.task}");
+                headBubble?.ShowThought("I remember...");
+                // 這裡不需要做什麼，只要確保 isThinking = false，
+                // 下一次 Update loop 就會自動發送新的感知數據繼續任務
+                isThinking = false;
+                return;
+            }
+
+            // 3. 正常的行動計畫
             if (response.plan != null && response.plan.Count > 0)
             {
+                Debug.Log($"[AI] Received Plan: {response.plan.Count} steps");
                 StartCoroutine(ExecutePlanRoutine(response.plan));
             }
             else
             {
+                // 收到空計畫，代表還在想，或是沒事做
                 isThinking = false; 
             }
         }
@@ -543,7 +710,7 @@ public class AgentNetworkManager : MonoBehaviour
         AgentPayload payload = new AgentPayload();
         payload.self = BuildSelfData();
         payload.sensory = BuildSensoryData();
-
+        payload.statistics = BuildStatisticsData();
         // 2. 處理 Trace (為了測試，如果歷史是空的，我們塞一筆假的給你看)
         if (traceHistory.Count == 0)
         {
@@ -648,9 +815,18 @@ public class AgentPayload
 {
     public SelfData self;
     public SensoryData sensory;
+    public StatisticsData statistics;
     public List<ExecutionTraceItem> execution_trace;
 }
-
+[Serializable]
+public class StatisticsData
+{
+    // 總共有幾個東西在桌上
+    public int table_item_count;
+    
+    // 統計清單，格式為 ["SLICED_ONION:2", "PLATE:1"]
+    public List<string> table_items;   
+}
 [Serializable]
 public class SelfData
 {
@@ -699,6 +875,9 @@ public class ExecutionTraceItem
 [Serializable]
 public class ServerResponse
 {
+    public string type;
+    public string error;
+
     public string client_id;
     public string task;
     public List<AgentActionData> plan;
