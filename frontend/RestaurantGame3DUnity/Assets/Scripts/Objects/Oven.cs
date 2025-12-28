@@ -4,7 +4,7 @@ using UnityEngine;
 
 public class Oven : MonoBehaviour, IPutItemFull
 {
-    private bool isFull;
+    public bool isFull;
     [SerializeField] private GameObject cookedItem;
     [SerializeField] private UITimer timer;
     [SerializeField] private OvenBox itemBox;
