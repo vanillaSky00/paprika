@@ -799,6 +799,24 @@ public class AgentNetworkManager : MonoBehaviour
         string json = JsonConvert.SerializeObject(mockPayload, Formatting.Indented);
         Debug.Log($"<color=yellow>[Mock JSON Schema]</color>\n{json}");
     }
+    [ContextMenu("Test: Agent Speak")]
+    public void TestAgentSpeak()
+    {
+        string mockJson = @"
+        {
+            ""task"": ""Say hello"",
+            ""plan"": [
+                {
+                    ""thought_trace"": ""Greeting the player"",
+                    ""function"": ""speak"",
+                    ""args"": { ""content"": ""Hello! The soup smells delicious today."" } 
+                }
+            ]
+        }";
+
+        Debug.Log("[Test] Testing Speak Action...");
+        HandleServerResponse(mockJson);
+    }
 }
 
 // =========================================================
