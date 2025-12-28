@@ -26,27 +26,30 @@ class ObjectView(BaseModel):
 
     @computed_field
     def status_summary(self) -> str:
-        """
-        Auto-generates the string like '(is_on,progress:50%)' 
-        directly from the dictionary.
-        """
         if not self.state:
             return "(default)"
             
         flags = []
         
-        # 1. Booleans (is_on=True) - Explicitly IGNORE 'is_empty'
-        flags.extend([k for k, v in self.state.items() 
-                      if v is True and k != 'is_empty'])
-        
-        # 2. Progress Numbers
-        if "cooking_progress" in self.state:
-            val = self.state["cooking_progress"]
-            if val > 0:
-                flags.append(f"progress:{int(val)}%")
+        for k, v in self.state.items():
+            # 🛑 1. Skip keys you never want to show (Noise reduction)
+            if k in ['is_empty', 'id', 'type', 'distance']: 
+                continue
                 
-        # 3. Container Logic (is_empty=False -> "contains_items")
-        if self.state.get("is_empty") is False:
+            # ✅ 2. Handle Booleans (e.g., is_on: true -> "is_on")
+            if isinstance(v, bool):
+                if v is True:
+                    flags.append(k)
+            
+            # ✅ 3. Handle Strings & Numbers (e.g., held_item: "Meat" -> "held_item:Meat")
+            # This is the part you were missing!
+            elif isinstance(v, (str, int, float)) and v:
+                flags.append(f"{k}:{v}")
+
+        # 4. Legacy "contains_items" fallback (optional, keeps your old logic working)
+        # If we didn't find a specific item string, but it's not empty, say generic "contains_items"
+        has_explicit_item = any(isinstance(v, str) for v in self.state.values())
+        if self.state.get("is_empty") is False and not has_explicit_item:
             flags.append("contains_items")
             
         return f"({','.join(flags)})" if flags else ""
