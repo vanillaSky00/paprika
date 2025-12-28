@@ -665,12 +665,7 @@ public class SensoryData
 public class WorldObjectData
 {
     public string id;
-<<<<<<< HEAD
-    public string type;
-    //public PositionData position;
-=======
     public string type;        
->>>>>>> ba9cb5af67345039517a02c8dd6b0e8719c286f3
     public float distance;
     public Dictionary<string, object> state; // 使用 Dictionary 增加彈性
 }
