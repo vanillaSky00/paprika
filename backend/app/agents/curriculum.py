@@ -24,7 +24,7 @@ class CurriculumAgent(BaseAgent):
         self.qa_llm = qa_llm
         self.memory = memory_store
         self.memory_window_size = memory_window_size
-        self.recent_tasks = [] # short-term buffer (last 5 task)
+        self.recent_history = [] # {'task': str, 'result': str}
         self.mode = mode
 
     def render_human_message(        
@@ -38,7 +38,15 @@ class CurriculumAgent(BaseAgent):
         else:
             long_term_memories_str = "No relavent memories found."
         
-        short_term_memories_str = ", ".join(self.recent_tasks[-5:]) or "None"
+        # about success and failed actions in short-term memory
+        history_str = ""
+        if self.recent_history:
+            history_str = "\n".join(
+                [f"- {item['task']} ({item['result']})" for item in self.recent_history[-5:]]
+            )
+        else:
+            history_str = "None"
+        
         
         obj = ObservationAdapter(perception)
         
@@ -50,9 +58,9 @@ class CurriculumAgent(BaseAgent):
 
         --- RELEVANT MEMORIES (What I learned here before) ---
         {long_term_memories_str}
-
-        --- RECENT ACTION HISTORY ---
-        {short_term_memories_str}
+        
+        --- RECENT ACTION HISTORY (Do not repeat failed tasks) ---
+        {history_str}
 
         Based on my past memories and current state, what is the best next task?
         """
@@ -92,11 +100,11 @@ class CurriculumAgent(BaseAgent):
         else:
             raise ValueError(f"Invalid curriculum agent mode: {self.mode}")
     
-    def add_recent_task(self, task: str):
-        """Adds a completed task to short-term memory so we don't repeat it."""
-        self.recent_tasks.append(task)
-        if len(self.recent_tasks) > self.memory_window_size:
-            self.recent_tasks.pop(0)
+    def add_history(self, task: str, result: str):
+        """Records both Success and Failure"""
+        self.recent_history.append({"task": task, "result": result})
+        if len(self.recent_history) > self.memory_window_size:
+            self.recent_history.pop(0)
             
     async def __propose_next_ai_task(
         self,

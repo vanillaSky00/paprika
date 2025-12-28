@@ -116,6 +116,17 @@ async def critic_node(state: AgentState):
         "retry_count": state['retry_count'] + 1
     }
 
+async def failure_node(state: AgentState):
+    logger.warning(f"--- 💀 FAILURE: Giving up on '{state['task']}' ---")
+    
+    curriculum_agent.add_history(state['task'], "Failed")
+    
+    # Reset state for the next fresh attempt
+    return {
+        "plan": [],
+        "retry_count": 0,
+        "critique": None
+    }
 
 async def learning_node(state: AgentState):
     logger.info("--- 🎓 LEARNING: Saving to Long-Term Memory... ---")
@@ -128,7 +139,7 @@ async def learning_node(state: AgentState):
         success=True,
     )
     
-    curriculum_agent.add_recent_task(state['task'])
+    curriculum_agent.add_history(state['task'], "Success")
     
     return {}
 
@@ -153,8 +164,8 @@ def decide_next_node(state: AgentState):
     if critique.success:
         return "learning"
     
-    elif state['retry_count'] <= 3:
-        logger.warning(f"⚠️ Failed. Retrying ({state['retry_count']}/3)...")
+    elif state['retry_count'] <= 2:
+        logger.warning(f"⚠️ Failed. Retrying ({state['retry_count']}/2)...")
         return "action"
     
     else:
@@ -181,6 +192,7 @@ workflow.set_conditional_entry_point(
 
 workflow.add_edge("curriculum", "skill")
 workflow.add_edge("skill", "action")
+workflow.add_node("failure", failure_node)
 
 # Action goes to END (stops Python), so Unity can run the plan.
 workflow.add_edge("action", END)
@@ -191,10 +203,10 @@ workflow.add_conditional_edges(
     {
         "learning": "learning",
         "action": "action",
-        "curriculum": "curriculum"
+        "failure": "failure"
     }
 )
-
+workflow.add_edge("failure", "curriculum") # <--- Loop back to try a NEW task
 workflow.add_edge("learning", "curriculum")
 
 graph_app = workflow.compile()
