@@ -73,6 +73,15 @@ OPENWEATHER_BASE_URL=https://api.openweathermap.org
 docker compose up -d --build
 ```
 
+
+update shcema
+```
+make migrate
+```
+or use
+```
+docker compose exec agent-runtime alembic stamp head 
+```
 ### 3) Enable pgvector (recommended: auto-init)
 
 Paprika stores embeddings in Postgres (`VECTOR(...)`), so the `vector` extension must exist.
