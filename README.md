@@ -254,6 +254,7 @@ For bug reports and feature requests, please use GitHub Issues. For questions or
 </p>
 
 ## 🙏 Credits / Acknowledgements
+Please refer to the linked repositories for their respective licenses and attribution requirements.
 - **Unity frontend base:** derived from the open-source project by KaganAyten  
   - https://github.com/KaganAyten/RestaurantGame3DUnity
 
