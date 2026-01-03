@@ -1,0 +1,214 @@
+{
+  "self": {
+    "time_hour": 22,
+    "current_zone": "kitchen",
+    "status": "Idle",
+    "held_item": null
+  },
+  "sensory": {
+    "player_nearby": true,
+    "reachable_objects": [
+      {
+        "id": "Preparation3",
+        "type": "Container",
+        "distance": 1.77651739,
+        "state": {
+          "is_occupied": true,
+          "is_empty": false,
+          "held_item": "COOKEDMEAT",
+          "type": "Counter"
+        }
+      },
+      {
+        "id": "BreadBox",
+        "type": "Container",
+        "distance": 1.56575811,
+        "state": {
+          "is_occupied": true,
+          "is_empty": false,
+          "held_item": "BREAD"
+        }
+      },
+      {
+        "id": "Preparation4",
+        "type": "Container",
+        "distance": 0.903008938,
+        "state": {
+          "is_occupied": true,
+          "is_empty": false,
+          "held_item": "SLICEDON",
+          "type": "Counter"
+        }
+      },
+      {
+        "id": "OnionBox",
+        "type": "Container",
+        "distance": 2.255388,
+        "state": {
+          "is_occupied": true,
+          "is_empty": false,
+          "held_item": "ONION"
+        }
+      },
+      {
+        "id": "Preparation2",
+        "type": "Container",
+        "distance": 0.8773998,
+        "state": {
+          "is_occupied": true,
+          "is_empty": false,
+          "held_item": "SLICEDBREAD",
+          "type": "Counter"
+        }
+      }
+    ],
+    "visible_objects": [
+      {
+        "id": "TomatoBox",
+        "type": "Container",
+        "distance": 9.272058,
+        "state": {
+          "is_occupied": true,
+          "is_empty": false,
+          "held_item": "TOMATO"
+        }
+      },
+      {
+        "id": "Player_preparation_1",
+        "type": "Container",
+        "distance": 3.58424163,
+        "state": {
+          "is_occupied": false,
+          "is_empty": true,
+          "held_item": null
+        }
+      },
+      {
+        "id": "MeatBox",
+        "type": "Container",
+        "distance": 7.113547,
+        "state": {
+          "is_occupied": true,
+          "is_empty": false,
+          "held_item": "MEATBALL"
+        }
+      },
+      {
+        "id": "Preparation1",
+        "type": "Container",
+        "distance": 2.64386082,
+        "state": {
+          "is_occupied": true,
+          "is_empty": false,
+          "held_item": "LETTUCE",
+          "type": "Counter"
+        }
+      },
+      {
+        "id": "LettuceBox",
+        "type": "Container",
+        "distance": 4.531591,
+        "state": {
+          "is_occupied": true,
+          "is_empty": false,
+          "held_item": "LETTUCE"
+        }
+      },
+      {
+        "id": "CheeseBox",
+        "type": "Container",
+        "distance": 6.49929667,
+        "state": {
+          "is_occupied": true,
+          "is_empty": false,
+          "held_item": "CHEESE"
+        }
+      },
+      {
+        "id": "Oven",
+        "type": "Station",
+        "distance": 6.485549,
+        "state": {
+          "is_on": true,
+          "is_occupied": false,
+          "has_cooked_food": false,
+          "held_item": null
+        }
+      },
+      {
+        "id": "CutBoard",
+        "type": "Station",
+        "distance": 3.01020265,
+        "state": {
+          "occupied_by": null
+        }
+      },
+      {
+        "id": "PlateBoard",
+        "type": "Container",
+        "distance": 4.88240767,
+        "state": {
+          "is_occupied": true,
+          "is_empty": false,
+          "held_item": "PLATE"
+        }
+      },
+      {
+        "id": "Player_preparation_2",
+        "type": "Container",
+        "distance": 2.54662251,
+        "state": {
+          "is_occupied": false,
+          "is_empty": true,
+          "held_item": null
+        }
+      }
+    ]
+  },
+  "statistics": {
+    "table_item_count": 4,
+    "table_items": [
+      "SLICED_ONION:1",
+      "SLICED_BREAD:1",
+      "LETTUCE:1",
+      "COOKEDMEAT:1"
+    ]
+  },
+  "execution_trace": [
+    {
+      "step_index": 4,
+      "function": "put_down",
+      "target_id": "Oven",
+      "status": "success",
+      "message": "Put item on Oven"
+    },
+    {
+      "step_index": 5,
+      "function": "cook",
+      "target_id": "Oven",
+      "status": "success",
+      "message": "Food is cooked and ready on the stove."
+    },
+    {
+      "step_index": 6,
+      "function": "pickup",
+      "target_id": "Oven",
+      "status": "success",
+      "message": "Picked up COOKEDMEAT"
+    },
+    {
+      "step_index": 7,
+      "function": "move_to",
+      "target_id": "Preparation",
+      "status": "success",
+      "message": "Arrived at Preparation"
+    },
+    {
+      "step_index": 8,
+      "function": "put_down",
+      "target_id": "Preparation",
+      "status": "success",
+      "message": "Put item on Preparation"
+    }
+  ]
+}

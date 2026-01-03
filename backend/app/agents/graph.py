@@ -35,7 +35,7 @@ curriculum_agent = CurriculumAgent(
 )
 
 skill_agent = SkillAgent(
-    llm=ollama_llm,
+    llm=openai_llm,
     memory_store=memory_store,
 )
 
