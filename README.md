@@ -18,7 +18,7 @@
 As the industry shifts from chat interfaces to **reliable skill execution**, Paprika addresses the need for agents that can automate complex workflows. Paprika is a framework for embodied cognition that simulates a physical environment using a Unity kitchen. Its architecture decouples the Brain (Python + LangGraph) from the Body (Unity), enabling agents to execute tasks, perceive their environment, and **learn from feedback dynamically**.
 
 
-## Quickstart
+## ⚡️ Quickstart
 
 > **Prereqs:** Docker + Docker Compose
 > (Optional for local dev: Python 3.11+ and `uv`)
@@ -69,7 +69,7 @@ Paprika stores embeddings in Postgres (`VECTOR(...)`), so the `vector` extension
 docker exec -it paprika_db psql -U admin -d paprika_ai
 ```
 
-## System Architecture
+## 🎄 System Architecture
 <p align="center">
   <img src="assets/png/tech_stack.png" width="650">
 </p>
@@ -94,13 +94,14 @@ docker exec -it paprika_db psql -U admin -d paprika_ai
 | **Skill (SOP Writer)**   | Turns action logs into reusable procedures | Reusable **skills / SOP steps**               | Improves determinism + reliability over time |
 
 
-## Workflow 
+## 🧩 Workflow 
 State machine diagram with LangGraph:
 <p align="center">
   <img src="assets/png/state_machine.png" width="650">
 </p>
 
-## Extending Paprika
+
+## 🦊 Extending Paprika
 Some features require mirrored changes in **both** Unity (C#) and the backend (Python)—for example, adding new tools or updating shared schemas/contracts.
 
 ### 1) Customize the Workflow
@@ -122,7 +123,7 @@ The architecture separates Unity (Game Logic) from Python (Decision Making). To 
 * Add Critic win-condition (success definition)
 * Optional: add SOP/Skill writer rule if you want reusable skills
 
-## Unity Setup
+## 👾 Unity Setup
 The backend references Unity GameObjects by exact string ID (passed as args.id). If the ID doesn’t match the scene object name, actions will fail.
 
 ### 1) Valid Unity IDs
@@ -217,8 +218,36 @@ Current mission: **Make a Hamburger** (gather → process → assemble).
 * Chop onion: `OnionBox → CutBoard → chop → pickup`
 * Assemble on plate: `Bread + Cheese + prepared ingredients → Plate_agent_X`
 
+## 😇 Support & Contact
+<!-- Team / Contact -->
+<p align="left">
+  <a href="https://github.com/vanillaSky00">
+    <img src="https://github.com/vanillaSky00.png?size=120" width="56" style="border-radius:50%; vertical-align:middle;" />
+  </a>
+  <span style="display:inline-block; width:12px;"></span>
+  <strong style="vertical-align:middle;">vanillaSky00</strong>
+  <span style="display:inline-block; width:12px;"></span>
+  <a href="https://www.linkedin.com/in/kai-chun-su-5507b4307/">
+    <img alt="LinkedIn" src="https://upload.wikimedia.org/wikipedia/commons/thumb/f/f8/LinkedIn_icon_circle.svg/120px-LinkedIn_icon_circle.svg.png" height="22" style="vertical-align:middle;" />
+  </a>
+  <span style="display:inline-block; width:8px;"></span>
+  <a href="mailto:pipichun2@gmail.com">
+    <img alt="Gmail" src="https://upload.wikimedia.org/wikipedia/commons/thumb/7/7e/Gmail_icon_%282020%29.svg/120px-Gmail_icon_%282020%29.svg.png" height="20" style="vertical-align:middle;" />
+  </a>
+</p>
 
-## Support & Contact
-
-## License
-MIT License
+<p align="left">
+  <a href="https://github.com/polybuffer">
+    <img src="https://github.com/polybuffer.png?size=120" width="56" style="border-radius:50%; vertical-align:middle;" />
+  </a>
+  <span style="display:inline-block; width:12px;"></span>
+  <strong style="vertical-align:middle;">polybuffer</strong>
+  <span style="display:inline-block; width:12px;"></span>
+  <a href="https://www.linkedin.com/in/polybuffer/">
+    <img alt="LinkedIn" src="https://upload.wikimedia.org/wikipedia/commons/thumb/f/f8/LinkedIn_icon_circle.svg/120px-LinkedIn_icon_circle.svg.png" height="22" style="vertical-align:middle;" />
+  </a>
+  <span style="display:inline-block; width:8px;"></span>
+  <a href="mailto:liangchun13124@gmail.com">
+    <img alt="Gmail" src="https://upload.wikimedia.org/wikipedia/commons/thumb/7/7e/Gmail_icon_%282020%29.svg/120px-Gmail_icon_%282020%29.svg.png" height="20" style="vertical-align:middle;" />
+  </a>
+</p>
