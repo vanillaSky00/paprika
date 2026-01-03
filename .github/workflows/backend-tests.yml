@@ -69,7 +69,7 @@ jobs:
           PYTHONPATH: .
           DATABASE_URL: postgresql+asyncpg://admin:password@127.0.0.1:5432/paprika_ai
           REDIS_URL: redis://127.0.0.1:6379/0
-        run: make migrate-ci
+        run: make migrate
 
       - name: Run CI (only free tests)
         env:
