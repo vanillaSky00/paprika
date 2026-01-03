@@ -101,23 +101,24 @@ State machine diagram with LangGraph:
 </p>
 
 ## Extending Paprika
+Some features require mirrored changes in **both** Unity (C#) and the backend (Python)—for example, adding new tools or updating shared schemas/contracts.
 
-### Customize the Workflow
+### 1) Customize the Workflow
 The architecture separates Unity (Game Logic) from Python (Decision Making). To integrate your own workflow, follow these steps:
 - API & Communication: Update the `schemas` and `routes` files located in `backend/app/api`.
-- Agent Logic: Modify the specific agent files within the `backend/app/agents` directory.
+- Agent Logic: Modify the specific agent/ graph files within the `backend/app/agents` directory.
 - Best Practice: We recommend using the Adapter Pattern to access the schema. You can implement this by modifying `backend/app/agents/adapter.py`.
 
 
-### Add a new tool
+### 2) Add a new tool
 
 1. Add a schema in `backend/app/tools/schemas.py`
 2. Add a `ToolBuilder` in `backend/app/tools/...` using `@tool_registry.register`
 3. Implement the corresponding Unity action handler and ensure IDs match
 
-### Add a new mission
+### 3) Add a new mission
 
-* Update Mentor rules (task selection / goal format)
+* Update rules (task selection / goal format) under `backend/prompts/template`
 * Add Critic win-condition (success definition)
 * Optional: add SOP/Skill writer rule if you want reusable skills
 
@@ -208,7 +209,7 @@ Structured fields or an event log (`transformed_from: RawMeat`) prevents “goal
 </details>
 
 
-## Missions
+### 4) Missions
 
 Current mission: **Make a Hamburger** (gather → process → assemble).
 
@@ -217,9 +218,7 @@ Current mission: **Make a Hamburger** (gather → process → assemble).
 * Assemble on plate: `Bread + Cheese + prepared ingredients → Plate_agent_X`
 
 
-## License
-MIT License
-
-
 ## Support & Contact
 
+## License
+MIT License
