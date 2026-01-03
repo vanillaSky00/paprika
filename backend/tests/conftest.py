@@ -84,21 +84,26 @@ def dummy_perception(dummy_world_objects):
         self=SelfState(
             time_hour=12,
             current_zone="Kitchen_A",
-            held_item=None
+            held_item=None,
         ),
         sensory=Sensory(
             player_nearby=True,
-            visible_objects=dummy_world_objects
+            visible_objects=dummy_world_objects,
+            reachable_objects=[],  # keep explicit if your schema has it
         ),
+        statistics={
+            "table_item_count": 0,
+            "table_items": [],
+        },
         execution_trace=[
             TraceStep(
                 step_index=1,
                 function="move_to",
-                target_id="Stove_01",
+                id="Stove_01",          # was target_id
                 status="failed",
-                message="Too far from Stove_01"
+                message="Too far from Stove_01",
             )
-        ]
+        ],
     )
 
 # ------------------------------------------------------------------

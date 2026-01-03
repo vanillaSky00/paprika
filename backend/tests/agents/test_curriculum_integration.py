@@ -30,7 +30,11 @@ def test_curriculum_prompt_rendering(dummy_perception, mock_dependencies):
         memory_store=mock_memory,
         mode="auto"
     )
-    agent.recent_tasks = ["Open Fridge", "Grab Tomato"]
+    
+    agent.recent_history = [
+        {"task": "Open Fridge", "result": "success"},
+        {"task": "Grab Tomato", "result": "success"},
+    ]
 
     fake_memories = [
         MemoryDTO(

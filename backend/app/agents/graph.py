@@ -17,7 +17,7 @@ from app.api.schemas import Perception, AgentAction, CriticOutput
 logger = logging.getLogger(__name__)
 
 openai_llm = get_llm("openai", "gpt-4.1-mini")
-ollama_llm = get_llm("ollama", "gemma3:4b")
+# ollama_llm = get_llm("ollama", "gemma3:4b")
 
 session_factory = get_session_factory()
 memory_store = PostgresMemoryStore(session_factory)
@@ -30,12 +30,12 @@ tools = tool_registry.build_all(tool_context)
 
 curriculum_agent = CurriculumAgent(
     llm=openai_llm,
-    qa_llm=ollama_llm,
+    qa_llm=openai_llm,
     memory_store=memory_store
 )
 
 skill_agent = SkillAgent(
-    llm=ollama_llm,
+    llm=openai_llm,
     memory_store=memory_store,
 )
 
