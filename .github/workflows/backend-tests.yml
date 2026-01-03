@@ -64,12 +64,18 @@ jobs:
       - name: Install Dependencies
         run: uv sync
 
+      - name: Enable pgvector extension (same as init.sql)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+          PGPASSWORD=password psql -h 127.0.0.1 -U admin -d paprika_ai -c "CREATE EXTENSION IF NOT EXISTS vector;"
+
       - name: Run DB migrations
         env:
           PYTHONPATH: .
           DATABASE_URL: postgresql+asyncpg://admin:password@127.0.0.1:5432/paprika_ai
           REDIS_URL: redis://127.0.0.1:6379/0
-        run: make migrate
+        run: make migrate-ci
 
       - name: Run CI (only free tests)
         env:
