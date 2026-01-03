@@ -80,7 +80,7 @@ jobs:
       - name: Run CI (only free tests)
         env:
           PYTHONPATH: .   # <--- ADD THIS LINE (It forces Python to look in current folder)
-          DATABASE_URL: postgresql+asyncpg://admin:password@localhost:5432/paprika_ai
+          DATABASE_URL: postgresql+asyncpg://admin:password@127.0.0.1:5432/paprika_ai
           # OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           REDIS_URL: redis://127.0.0.1:6379/0
         run: |
