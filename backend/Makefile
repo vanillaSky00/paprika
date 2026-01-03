@@ -2,7 +2,7 @@
 PY := uv run
 PYTEST_ARGS ?=
 
-.PHONY: test test-all lint format fix update-tapes ci help migration migrate
+.PHONY: test test-all lint format fix update-tapes ci help migration migrate migrate-ci
 
 help:
 	@echo "make lint         - ruff check (read-only)"
@@ -65,3 +65,6 @@ migration:
 # Usage: make migrate
 migrate:
 	docker compose exec agent-runtime alembic upgrade head
+
+migrate-ci:
+	$(PY) alembic upgrade head

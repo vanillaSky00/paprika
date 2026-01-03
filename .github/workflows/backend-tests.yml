@@ -36,6 +36,16 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+      
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping | grep PONG"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
 
     steps:
       - name: Checkout code
@@ -54,10 +64,18 @@ jobs:
       - name: Install Dependencies
         run: uv sync
 
-      - name: Run CI (lint + free tests)
+      - name: Run DB migrations
+        env:
+          PYTHONPATH: .
+          DATABASE_URL: postgresql+asyncpg://admin:password@127.0.0.1:5432/paprika_ai
+          REDIS_URL: redis://127.0.0.1:6379/0
+        run: make migrate-ci
+
+      - name: Run CI (only free tests)
         env:
           PYTHONPATH: .   # <--- ADD THIS LINE (It forces Python to look in current folder)
           DATABASE_URL: postgresql+asyncpg://admin:password@localhost:5432/paprika_ai
           # OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          REDIS_URL: redis://127.0.0.1:6379/0
         run: |
           make test
