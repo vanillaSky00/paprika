@@ -219,6 +219,7 @@ Current mission: **Make a Hamburger** (gather → process → assemble).
 * Assemble on plate: `Bread + Cheese + prepared ingredients → Plate_agent_X`
 
 ## 😇 Support & Contact
+For bug reports and feature requests, please use GitHub Issues. For questions or feedback, feel free to contact the maintainers below — we’re happy to learn and improve.
 <!-- Team / Contact -->
 <p align="left">
   <a href="https://github.com/vanillaSky00">
@@ -251,3 +252,10 @@ Current mission: **Make a Hamburger** (gather → process → assemble).
     <img alt="Gmail" src="https://upload.wikimedia.org/wikipedia/commons/thumb/7/7e/Gmail_icon_%282020%29.svg/120px-Gmail_icon_%282020%29.svg.png" height="20" style="vertical-align:middle;" />
   </a>
 </p>
+
+## 🙏 Credits / Acknowledgements
+- **Unity frontend base:** derived from the open-source project by KaganAyten  
+  - https://github.com/KaganAyten/RestaurantGame3DUnity
+
+- **Agent workflow inspiration:** design ideas adapted from the Voyager project (MineDojo)  
+  - https://github.com/MineDojo/Voyager
