@@ -18,18 +18,24 @@ def test_websocket_agent_flow():
 
     # 1. Define the input data (UPDATED FOR NESTED SCHEMA)
     perception_payload = {
-        "self": {
-            "time_hour": 10,
-            "current_zone": "Kitchen_01",
-            "held_item": None,
-            "status": "idle"
-        },
-        "sensory": {
-            "player_nearby": True,
-            "visible_objects": []
-        },
-        "execution_trace": []
-    }
+    "self": {
+        "time_hour": 10,
+        "current_zone": "Kitchen_01",
+        "held_item": None,
+        "status": "idle",
+    },
+    "sensory": {
+        "player_nearby": True,
+        "visible_objects": [],
+        "reachable_objects": [],
+    },
+    "statistics": {
+        "table_item_count": 0,
+        "table_items": [],
+    },
+    "execution_trace": [],
+}
+
 
     mock_action = AgentAction(
         thought_trace="I see nothing, so I will explore.",
