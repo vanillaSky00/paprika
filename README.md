@@ -1,42 +1,21 @@
 
 
-# 🌶️ Paprika: Cognitive AI Agent Sandbox
+# 🌶️ Paprika: Your Reliable Hamburger Workers
 
 ![Status](https://img.shields.io/badge/Status-Prototype-orange)
 ![Python](https://img.shields.io/badge/Python-3.11%2B-blue?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.124%2B-009688?logo=fastapi&logoColor=white)
 ![LangGraph](https://img.shields.io/badge/AI-LangGraph-FF4B4B)
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)
-![Unity](https://img.shields.io/badge/Frontend-Unity_2022-black?logo=unity&logoColor=white)
+![Unity](https://img.shields.io/badge/Frontend-Unity_2022-black?logo=unity&logoColor=white) <br>
+![macOS](https://img.shields.io/badge/macOS-Supported-000000?logo=apple&logoColor=white)
+![Windows](https://img.shields.io/badge/Windows-Supported-0078D6?logo=windows&logoColor=white)
 
-**Paprika** is an experimental AI agent framework that simulates **embodied cognition** inside a Unity kitchen.  
-It decouples the **Brain** (Python + LangGraph backend) from the **Body** (Unity), letting agents perceive the world, plan tasks, execute actions, and receive critique through a real-time bridge.
+<p align="center">
+  <img src="assets/png/goal.png" width="650">
+</p>
 
-
-## Why Paprika
-
-- **Brain/Body split**: keep game logic in Unity, decision-making in Python.
-- **Tool-based action**: agent can only act via a small set of tools (`move_to`, `pickup`, `put_down`, `chop`, `cook`).
-- **Role-based control loop**: Mentor → Action → Critic → (optional) Skill/SOP writer.
-
-
-
-## System Architecture
-
-```text
-  Unity (Body)  <------ WebSocket/HTTP ------>  FastAPI (Brain)
-  - World state/perception                 - LangGraph graph
-  - Physics + item transforms              - LLM planner + tool calls
-  - Animation + movement                   - Critic / Mentor / Skill writer roles
-```
-
-### LLM Roles
-
-* **Mentor (Planner)**: chooses the next task and outputs a strict JSON goal.
-* **Action Agent (Executor)**: outputs a JSON list of tool calls with a `thought_trace`.
-* **Critic (Verifier)**: checks success strictly from world state (no guessing).
-* **Scribe (SOP Writer)**: converts action logs into reusable skills/SOP steps.
-
+As the industry shifts from chat interfaces to **reliable skill execution**, Paprika addresses the need for agents that can automate complex workflows. Paprika is a framework for embodied cognition that simulates a physical environment using a Unity kitchen. Its architecture decouples the Brain (Python + LangGraph) from the Body (Unity), enabling agents to execute tasks, perceive their environment, and **learn from feedback dynamically**.
 
 
 ## Quickstart
@@ -68,129 +47,162 @@ OPENWEATHER_BASE_URL=https://api.openweathermap.org
 ```
 
 ### 2) Start services
-
+Start backend first
 ```bash
 docker compose up -d --build
 ```
-
-
-update shcema
+Update shcema
 ```
 make migrate
 ```
-or use
+or run directly without `make`
 ```
 docker compose exec agent-runtime alembic stamp head 
 ```
-### 3) Enable pgvector (recommended: auto-init)
 
-Paprika stores embeddings in Postgres (`VECTOR(...)`), so the `vector` extension must exist.
-monitor
+Then click open `Unity` game downloaded in release
+
+### 3) Monitor pgvector (optional)
+
+Paprika stores embeddings in Postgres (`VECTOR(...)`), so the `vector` extension must exist. We can monitor via docker command, or connect to your `grafana`.
 ```
 docker exec -it paprika_db psql -U admin -d paprika_ai
 ```
 
+## System Architecture
+<p align="center">
+  <img src="assets/png/tech_stack.png" width="650">
+</p>
 
-Create:
-
-`docker/db/init/01_pgvector.sql`
-
-```sql
-CREATE EXTENSION IF NOT EXISTS vector;
+```text
+  Unity (Body)  <------ WebSocket/HTTP ------>  FastAPI (Brain)
+  - World state/perception                      - LangGraph graph + session + db
+  - Physics + item transforms                   - LLM planner + tool calls 
 ```
 
-Mount it in your `db` service in `docker-compose.yml`:
+### LLM Roles
 
-```yaml
-volumes:
-  - backend_postgres_data:/var/lib/postgresql/data
-  - ./docker/db/init:/docker-entrypoint-initdb.d
-```
+<p align="center">
+  <img src="assets/png/orchestration.png" width="650">
+</p>
 
-Reset **once** (init scripts only run on a fresh DB volume):
+| Role (Module)            | Main responsibility                        | Output format                                 | Key rule / emphasis                          |
+| ------------------------ | ------------------------------------------ | --------------------------------------------- | -------------------------------------------- |
+| **Curriculur (Planner)** | Chooses the next task                      | **Strict JSON** goal                          | Picks *what to do next*                      |
+| **Action (Executor)**    | Executes by selecting tools                | **JSON list** of tool calls + `thought_trace` | Tool-use is explicit and auditable           |
+| **Critic (Verifier)**    | Verifies whether the task succeeded        | Verification result based on **world state**  | **No guessing**; only state-based checks     |
+| **Skill (SOP Writer)**   | Turns action logs into reusable procedures | Reusable **skills / SOP steps**               | Improves determinism + reliability over time |
 
-```bash
-docker compose down -v
-docker compose up -d --build
-```
 
-### 4) Run migrations
+## Workflow 
+State machine diagram with LangGraph:
+<p align="center">
+  <img src="assets/png/state_machine.png" width="650">
+</p>
 
-```bash
-make migration msg="init_schema"
-make migrate
-```
+## Extending Paprika
+
+### Customize the Workflow
+The architecture separates Unity (Game Logic) from Python (Decision Making). To integrate your own workflow, follow these steps:
+- API & Communication: Update the `schemas` and `routes` files located in `backend/app/api`.
+- Agent Logic: Modify the specific agent files within the `backend/app/agents` directory.
+- Best Practice: We recommend using the Adapter Pattern to access the schema. You can implement this by modifying `backend/app/agents/adapter.py`.
+
+
+### Add a new tool
+
+1. Add a schema in `backend/app/tools/schemas.py`
+2. Add a `ToolBuilder` in `backend/app/tools/...` using `@tool_registry.register`
+3. Implement the corresponding Unity action handler and ensure IDs match
+
+### Add a new mission
+
+* Update Mentor rules (task selection / goal format)
+* Add Critic win-condition (success definition)
+* Optional: add SOP/Skill writer rule if you want reusable skills
 
 ## Unity Setup
+The backend references Unity GameObjects by exact string ID (passed as args.id). If the ID doesn’t match the scene object name, actions will fail.
 
-Paprika’s backend refers to Unity objects by **ID**. These must match exactly.
+### 1) Valid Unity IDs
 
-### Valid IDs
+Containers / Stations (scene object names):
+check note in `backend/app/prompts/template/unity_setting`
 
-| Category   | IDs                                                                       |
-| ---------- | ------------------------------------------------------------------------- |
-| Containers | `OnionBox`, `LettuceBox`, `CheeseBox`, `BreadBox`, `TomatoBox`, `MeatBox` |
-| Stations   | `Oven`, `CutBoard`, `PlateBoard`, `Trash`                                 |
-| Plates     | `Plate_agent_1`, `Plate_agent_2`, `Plate_agent_3`, `Plate_agent_4`        |
+- Pick ingredient from:
+`OnionBox`, `LettuceBox`, `CheeseBox`, `BreadBox`, `TomatoBox`, `MeatBox`
 
----
+- Interact with the ingredient with:
+`Oven`, `CutBoard`, `PlateBoard`, `Trash`
 
-## Agent Actions (Tools)
+- Put the processed ingredients on:
+`Preparation_1`, `Preparation_2`, `Preparation_3`, `Preparation_4`
 
-The Action Agent must output a **valid JSON list**. Each step uses a tool and `{ "id": "..." }`.
+Keep this list updated whenever you rename/add GameObjects.
 
-### Supported tools
 
-| Tool           | Meaning                            |
-| -------------- | ---------------------------------- |
-| `move_to(id)`  | Walk to a specific location/object |
-| `pickup(id)`   | Pick up an item                    |
-| `put_down(id)` | Put down an item                   |
-| `chop(id)`     | Chop an ingredient                 |
-| `cook(id)`     | Cook an item using an appliance    |
+### 2) Agent Actions (Tools)
+
+Agents can only interact with the world through a small set of tools. Every tool uses the same argument key: id (unified on purpose to reduce LLM confusion).
+
+#### Supported tools
+
+| Tool       | Purpose                                                           | `args`                  |
+| ---------- | ----------------------------------------------------------------- | ----------------------- |
+| `move_to`  | Walk to a target object/location                                  | `{ "id": "<UnityID>" }` |
+| `pickup`   | Pick up an item (usually from a container / or the item itself)   | `{ "id": "<UnityID>" }` |
+| `put_down` | Place the held item onto a surface/station                        | `{ "id": "<UnityID>" }` |
+| `chop`     | Chop using a station / chop target (depends on your world design) | `{ "id": "<UnityID>" }` |
+| `cook`     | Cook using an appliance/station                                   | `{ "id": "<UnityID>" }` |
+
+#### Action JSON format
+The Action Agent must output a JSON list. Each step is a tool call with:
+- thought_trace (string)
+- function (tool name)
+- args with { "id": "..." }
 
 ### Example: pick up meat and place on oven
 
 ```json
 [
   {
-    "thought_trace": "1. Go to MeatBox to grab meat",
+    "thought_trace": "Go to MeatBox to grab meat",
     "function": "move_to",
     "args": { "id": "MeatBox" }
   },
   {
-    "thought_trace": "2. Pick up meat",
+    "thought_trace": "Pick up meat",
     "function": "pickup",
     "args": { "id": "MeatBox" }
   },
   {
-    "thought_trace": "3. Walk to the Oven",
+    "thought_trace": "Walk to the Oven",
     "function": "move_to",
     "args": { "id": "Oven" }
   },
   {
-    "thought_trace": "4. Place meat on Oven to cook",
+    "thought_trace": "Place meat on Oven to cook",
     "function": "put_down",
     "args": { "id": "Oven" }
   }
 ]
 ```
 
-## Perception Contract (recommended)
+### 3) Perception Contract (recommended)
 
 Avoid relying on “status summary” strings. Use structured fields so the agent can reason about transforms (Raw → Cooked).
-Recommended fields:
-
-* `held_item`
-* `reachable_objects`
-* `visible_objects`
-* `containers` / `stations` states (ex: `is_on`, `held_item`)
+Check `perception_send_from_unity_example.txt` under `backend/app/prompts`:
+* `self` (held item)
+* `sensory` (reachable_objects, visible_objects)
+* `statistics` (how many processed ingredient on preparation table)
 * `execution_trace` (last actions + results)
 
 <details>
+
 <summary>Why structured perception matters</summary>
 
-If your oven turns `RawMeat` into `CookedMeat`, a string like `held_item: CookedMeat` loses *how it got there*.
+State transformations need explicit grounding, otherwise the LLM would not notice, we should provide more memory and log. <br>
+eg. If your oven turns `RawMeat` into `CookedMeat`, a string like `held_item: CookedMeat` loses *how it got there*.
 Structured fields or an event log (`transformed_from: RawMeat`) prevents “goal confusion”.
 
 </details>
@@ -205,72 +217,9 @@ Current mission: **Make a Hamburger** (gather → process → assemble).
 * Assemble on plate: `Bread + Cheese + prepared ingredients → Plate_agent_X`
 
 
-## Folder Structure
-
-> Replace the tree below with your real output (`tree -L 3`)
-
-```bash
-backend/
-  app/
-    agents/
-    tools/
-  alembic/
-frontend/
-  RestaurantGame3DUnity/
-    Assets/
-      Scripts/
-```
-
-
-## Extending Paprika
-
-### Add a new tool
-
-1. Add a schema in `app/tools/schemas.py`
-2. Add a `ToolBuilder` in `app/tools/...` using `@tool_registry.register`
-3. Implement the corresponding Unity action handler and ensure IDs match
-
-### Add a new mission
-
-* Update Mentor rules (task selection / goal format)
-* Add Critic win-condition (success definition)
-* Optional: add SOP/Skill writer rule if you want reusable skills
-
-## Troubleshooting
-
-### `type "vector" does not exist`
-
-Enable pgvector:
-
-```bash
-docker compose exec db psql -U postgres -d postgres -c "CREATE EXTENSION IF NOT EXISTS vector;"
-```
-
-If you want it automatic, use `docker-entrypoint-initdb.d` as described above.
-
-### Init script error: “Is a directory”
-
-You mounted a folder to a file path. You should mount the **init directory**:
-
-```yaml
-- ./docker/db/init:/docker-entrypoint-initdb.d
-```
-
-And ensure `01_pgvector.sql` is a **file**, not a folder.
-
-
 ## License
 MIT License
 
 
 ## Support & Contact
-
-When opening an issue, include:
-
-* OS (macOS/Windows/Linux)
-* `docker compose logs -f`
-* last ~20 agent actions + critic output
-
-
-If you want, paste your **real repo tree** (top 3 levels) + the actual **backend entrypoint** (e.g., `backend/app/main.py`) and I’ll replace the placeholders in “Folder Structure” + “How to Run” with exact commands and paths.
 
