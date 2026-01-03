@@ -28,9 +28,10 @@ As the industry shifts from chat interfaces to **reliable skill execution**, Pap
 Create `.env` in the repo root:
 
 ```bash
-# LLM
+# LLM (required)
 OPENAI_API_KEY=...
 
+# OLLAMA (optional)
 OLLAMA_BASE_URL=...
 OLLAMA_API_KEY=...
 OLLAMA_MODEL=gemma3:4b
