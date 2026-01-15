@@ -9,9 +9,14 @@ from app.llm.base import BaseLLMClient, BaseLLMBuilder, llm_registry
 T = TypeVar("T", bound=BaseModel)
 
 
-class OpenAIClient(BaseLLMClient):
-    def __init__(self, api_key: str, model: str = "gpt-4o"):
-        self.llm = ChatOpenAI(api_key=api_key, model=model, temperature=0.7)
+class GenericOpenAIClient(BaseLLMClient):
+    def __init__(self, api_key: str, base_url: str = None, model: str = "gpt-4o"):
+        self.llm = ChatOpenAI(
+            api_key=api_key,
+            base_url=base_url, 
+            model=model,
+            temperature=0.7
+        )
 
     async def generate_response(self, system_prompt: str, user_message: str) -> str:
         message = [("system", system_prompt), ("human", user_message)]
@@ -26,15 +31,18 @@ class OpenAIClient(BaseLLMClient):
         message = [("system", system_prompt), ("human", user_message)]
         return await structured_llm.ainvoke(message)
 
-@llm_registry.register("openai") 
-class OpenAIBuilder(BaseLLMBuilder):
+@llm_registry.register("General") 
+class GenericOpenAIBuilder(BaseLLMBuilder):
     def build(self, settings: Settings, model: str):
         if not settings.LLM_API_KEY:
             raise RuntimeError("LLM_API_KEY missing in .env!")
         if not settings.LLM_MODEL:
             raise RuntimeError("LLM_MODEL missing in .env!")
+        if not settings.LLM_BASE_URL:
+            raise RuntimeError("LLM_BASE_URL missing in .env!")
         
-        return OpenAIClient(
+        return GenericOpenAIClient(
             api_key=settings.LLM_API_KEY,
-            model=settings.LLM_MODEL
+            model=settings.LLM_MODEL,
+            base_url=settings.LLM_BASE_URL
         )

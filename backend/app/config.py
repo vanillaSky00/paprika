@@ -8,12 +8,9 @@ class Settings(BaseSettings):
     LLM_MODEL: str = "gpt-4.1-mini"
 
     # API keys and connection urls
-    OPENAI_API_KEY: str | None = None
-    OPENAI_MODEL: str | None = "gpt-4.1-mini"
-
-    OLLAMA_BASE_URL: str | None = None
-    OLLAMA_API_KEY: str | None = None
-    OLLAMA_MODEL: str | None = None
+    LLM_BASE_URL: str | None = None
+    LLM_API_KEY: str | None = None
+    LLM_MODEL: str | None = "gpt-4.1-mini"    
 
     # LangSmith / LangChain Config
     LANGCHAIN_TRACING_V2: bool = False

@@ -19,6 +19,8 @@ logger = logging.getLogger(__name__)
 # Default is open ai
 # To use other LLM, configure the llm provider and llm model in the .env file
 llm = get_llm()
+# openai_llm = get_llm("openai", "gpt-4.1-mini")
+# ollama_llm = get_llm("ollama", "gemma3:4b")
 
 session_factory = get_session_factory()
 memory_store = PostgresMemoryStore(session_factory)
