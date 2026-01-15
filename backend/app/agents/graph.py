@@ -16,6 +16,8 @@ from app.api.schemas import Perception, AgentAction, CriticOutput
 
 logger = logging.getLogger(__name__)
 
+# Default is open ai
+# To use other LLM, configure the llm provider and llm model in the .env file
 llm = get_llm()
 
 session_factory = get_session_factory()
