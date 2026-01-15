@@ -2,6 +2,7 @@
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import JSON, Column, DateTime, Float, Integer, String, Text, func
 from sqlalchemy.orm import declarative_base
+from app.memory.vector_store import embed_dim
 
 Base = declarative_base()
 
@@ -24,7 +25,7 @@ class Memory(Base):
     importance = Column(Float, default=0.5)
 
     # Vector (Ensure 1536 matches your embedding model size)
-    embedding = Column(Vector(1536))
+    embedding = Column(Vector(embed_dim()))
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
@@ -39,7 +40,7 @@ class Skill(Base):
     steps_text = Column(Text)                                 # The generic SOP (Step 1, Step 2...)
     code = Column(Text, nullable=True)                       # Future-proof: For Lua/C# scripts later
     
-    embedding = Column(Vector(1536))                         # Embedding of the description/task_name
+    embedding = Column(Vector(embed_dim()))                         # Embedding of the description/task_name
     
     # Metadata
     success_count = Column(Integer, default=0)
