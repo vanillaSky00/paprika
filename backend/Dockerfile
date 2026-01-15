@@ -10,8 +10,13 @@ ENV UV_COMPILE_BYTECODE=1
 
 COPY pyproject.toml uv.lock ./
 
-RUN uv sync --frozen --no-install-project --no-dev
+ARG INSTALL_LOCAL=false
 
+RUN if [ "$INSTALL_LOCAL" = "true" ]; then \
+    uv sync --frozen --no-install-project --no-dev --extra local; \
+    else \
+    uv sync --frozen --no-install-project --no-dev; \
+    fi
 
 ### Stage 2: runtime image ###
 FROM python:3.11-slim
