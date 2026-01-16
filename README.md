@@ -28,13 +28,13 @@ As the industry shifts from chat interfaces to **reliable skill execution**, Pap
 Create `.env` in the repo root:
 
 ```bash
-# LLM (required)
-OPENAI_API_KEY=...
+# LLM default OpanAI (required) 
+LLM_API_KEY=...
 
-# OLLAMA (optional)
-OLLAMA_BASE_URL=...
-OLLAMA_API_KEY=...
-OLLAMA_MODEL=gemma3:4b
+# LLM (optional)
+LLM_PROVIDER=General
+LLM_BASE_URL=...
+LLM_MODEL=...
 
 # LangSmith (optional)
 LANGCHAIN_TRACING_V2=true
@@ -45,6 +45,15 @@ LANGCHAIN_PROJECT=paprika-agent
 # OpenWeather (optional tool)
 OPENWEATHER_API_KEY=...
 OPENWEATHER_BASE_URL=https://api.openweathermap.org
+
+# Embedding provider (required)
+EMBEDDING_PROVIDER=...
+EMBEDDING_DIMENSION=...
+EMBEDDING_MODEL=...
+
+# Docker install Hugging face (optional)
+INSTALL_LOCAL=false
+
 ```
 
 ### 2) Start services
