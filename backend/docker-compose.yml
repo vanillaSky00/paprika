@@ -56,7 +56,6 @@ services:
       - .env
     volumes:
       - .:/app # Syncs your code
-      - /app/.venv # Protects the library folder
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD:-password}@db:5432/${POSTGRES_DB:-paprika_ai}

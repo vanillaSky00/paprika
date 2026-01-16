@@ -7,13 +7,15 @@ WORKDIR /app
 
 # Tells uv to compile .pyc bytecode during install.
 ENV UV_COMPILE_BYTECODE=1
+ENV UV_PROJECT_ENVIRONMENT="/venv"
+
 
 COPY pyproject.toml uv.lock ./
 
 ARG INSTALL_LOCAL=false
 
 RUN if [ "$INSTALL_LOCAL" = "true" ]; then \
-    uv sync --frozen --no-install-project --no-dev --extra local; \
+    uv sync --frozen --no-install-project --no-dev --group local; \
     else \
     uv sync --frozen --no-install-project --no-dev; \
     fi
@@ -24,8 +26,9 @@ FROM python:3.11-slim
 WORKDIR /app
 
 # From previous stage we only want its /app/.venv, the output of uv sync
-COPY --from=builder /app/.venv /app/.venv
-ENV PATH="/app/.venv/bin:%PATH"
+COPY --from=builder /venv /venv
+
+ENV PATH="/venv/bin:$PATH"
 
 COPY . .
 

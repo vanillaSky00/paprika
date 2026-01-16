@@ -22,6 +22,7 @@ class Settings(BaseSettings):
 
     EMBEDDING_PROVIDER: str = "openai"
     EMBEDDING_DIMENSION: int = 1536
+    EMBEDDING_MODEL: str = "text-embedding-3-small"
 
     DATABASE_URL: str = "postgresql+asyncpg://admin:password@localhost:5432/paprika_ai"
     
