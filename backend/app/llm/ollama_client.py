@@ -37,11 +37,11 @@ class OllamaClient(BaseLLMClient):
 @llm_registry.register("ollama")    
 class OllamaBuilder(BaseLLMBuilder):
     def build(self, settings: Settings, model: str):
-        if not settings.OLLAMA_BASE_URL:
-            raise RuntimeError("OLLAMA_BASE_URL missing in .env!")
+        if not settings.LLM_BASE_URL:
+            raise RuntimeError("LLM_BASE_URL missing in .env!")
         
         return OllamaClient(
-            base_url=settings.OLLAMA_BASE_URL,
+            base_url=settings.LLM_BASE_URL,
             model=model,
-            api_key=settings.OLLAMA_API_KEY
+            api_key=settings.LLM_API_KEY
         )

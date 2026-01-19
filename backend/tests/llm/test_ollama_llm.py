@@ -7,8 +7,8 @@ from app.deps import get_llm
 @pytest.mark.paid
 @pytest.mark.asyncio
 @pytest.mark.skipif(
-    not settings.OLLAMA_API_KEY,
-    reason="OLLAMA_API_KEY not set; skipping live OpenAI test.",
+    not settings.LLM_API_KEY,
+    reason="LLM_API_KEY not set; skipping live OpenAI test.",
 )
 async def test_ollama_simple_text():
     """
@@ -16,9 +16,9 @@ async def test_ollama_simple_text():
     use langchain to get in server
     """
     try:
-        client = get_llm("ollama", settings.OLLAMA_MODEL)
-        print(f"\n[Info] Connecting to: {settings.OLLAMA_BASE_URL}")
-        print(f"[Info] Model: {settings.OLLAMA_MODEL}")
+        client = get_llm("ollama", settings.LLM_MODEL)
+        print(f"\n[Info] Connecting to: {settings.LLM_BASE_URL}")
+        print(f"[Info] Model: {settings.LLM_MODEL}")
 
         result = await client.generate_response(
             system_prompt="You are a helpful bot.",

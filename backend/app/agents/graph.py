@@ -16,7 +16,10 @@ from app.api.schemas import Perception, AgentAction, CriticOutput
 
 logger = logging.getLogger(__name__)
 
-openai_llm = get_llm("openai", "gpt-4.1-mini")
+# Default is open ai
+# To use other LLM, configure the llm provider and llm model in the .env file
+llm = get_llm()
+# openai_llm = get_llm("openai", "gpt-4.1-mini")
 # ollama_llm = get_llm("ollama", "gemma3:4b")
 
 session_factory = get_session_factory()
@@ -29,23 +32,23 @@ tool_context = ToolContext(
 tools = tool_registry.build_all(tool_context)
 
 curriculum_agent = CurriculumAgent(
-    llm=openai_llm,
-    qa_llm=openai_llm,
+    llm=llm,
+    qa_llm=llm,
     memory_store=memory_store
 )
 
 skill_agent = SkillAgent(
-    llm=openai_llm,
+    llm=llm,
     memory_store=memory_store,
 )
 
 action_agent = ActionAgent(
-    llm=openai_llm,
+    llm=llm,
     tools=tools
 )
 
 critic_agent = CriticAgent(
-    llm=openai_llm
+    llm=llm
 )
 
 

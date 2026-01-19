@@ -6,6 +6,7 @@ Create Date: 2025-12-28 10:12:01.853528
 
 """
 from typing import Sequence, Union
+from app.memory.vector_store import embed_dim
 
 from alembic import op
 import sqlalchemy as sa
@@ -32,7 +33,7 @@ def upgrade() -> None:
     sa.Column('content', sa.Text(), nullable=True),
     sa.Column('emotion_tags', sa.JSON(), nullable=True),
     sa.Column('importance', sa.Float(), nullable=True),
-    sa.Column('embedding', pgvector.sqlalchemy.vector.VECTOR(dim=1536), nullable=True),
+    sa.Column('embedding', pgvector.sqlalchemy.vector.VECTOR(dim=embed_dim()), nullable=True),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
     sa.PrimaryKeyConstraint('id')
     )
@@ -44,7 +45,7 @@ def upgrade() -> None:
     sa.Column('description', sa.Text(), nullable=True),
     sa.Column('steps_text', sa.Text(), nullable=True),
     sa.Column('code', sa.Text(), nullable=True),
-    sa.Column('embedding', pgvector.sqlalchemy.vector.VECTOR(dim=1536), nullable=True),
+    sa.Column('embedding', pgvector.sqlalchemy.vector.VECTOR(dim=embed_dim()), nullable=True),
     sa.Column('success_count', sa.Integer(), nullable=True),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
     sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True),

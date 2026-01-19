@@ -8,12 +8,8 @@ class Settings(BaseSettings):
     LLM_MODEL: str = "gpt-4.1-mini"
 
     # API keys and connection urls
-    OPENAI_API_KEY: str | None = None
-    OPENAI_MODEL: str | None = "gpt-4.1-mini"
-
-    OLLAMA_BASE_URL: str | None = None
-    OLLAMA_API_KEY: str | None = None
-    OLLAMA_MODEL: str | None = None
+    LLM_BASE_URL: str | None = None
+    LLM_API_KEY: str | None = None
 
     # LangSmith / LangChain Config
     LANGCHAIN_TRACING_V2: bool = False
@@ -23,6 +19,10 @@ class Settings(BaseSettings):
 
     OPENWEATHER_BASE_URL: str = "http://api.openweathermap.org/data/2.5"
     OPENWEATHER_API_KEY: str | None = None
+
+    EMBEDDING_PROVIDER: str = "openai"
+    EMBEDDING_DIMENSION: int = 1536
+    EMBEDDING_MODEL: str = "text-embedding-3-small"
 
     DATABASE_URL: str = "postgresql+asyncpg://admin:password@localhost:5432/paprika_ai"
     

@@ -65,8 +65,8 @@ def test_websocket_agent_flow():
 @pytest.mark.paid
 @pytest.mark.integration
 @pytest.mark.skipif(
-    not settings.OPENAI_API_KEY,
-    reason="OPENAI_API_KEY not set; skipping live OpenAI test.",
+    not settings.LLM_API_KEY,
+    reason="LLM_API_KEY not set; skipping live OpenAI test.",
 )
 def test_websocket_live_static_world_failure():
     """

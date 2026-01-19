@@ -714,4 +714,7 @@ $RECYCLE.BIN/
 # Windows shortcuts
 *.lnk
 
+# Windows Frontend Pacjage
+Windows_Paprika
+
 # End of https://www.toptal.com/developers/gitignore/api/unity,python,csharp,windows,macos,linux,visualstudiocode

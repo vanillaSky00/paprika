@@ -23,6 +23,9 @@ dependencies = [
     "uvicorn[standard]>=0.38.0", # if only uvicorn then only http but not websocket
 ]
 
+[project.optional-dependencies]
+local = []
+
 [dependency-groups]
 dev = [
     "langgraph-cli[inmem]>=0.4.9",
@@ -31,6 +34,10 @@ dev = [
     "pytest-env>=1.2.0",
     "pytest-recording>=0.13.4",
     "ruff>=0.14.9",
+]
+local = [
+    "langchain-huggingface>=1.2.0",
+    "sentence-transformers>=5.2.0",
 ]
 
 [tool.pytest.ini_options]
@@ -41,9 +48,9 @@ markers = [
     "paid: tests that call paid APIs",
 ]
 env = [
-    "OPENAI_API_KEY=dummy_test_key",
-    "OPENAI_MODEL=gpt-4.1-mini",
-    "OLLAMA_BASE_URL=http://localhost:11434"
+    "LLM_PROVIDER=General",
+    "LLM_API_KEY=dummy_test_key",
+    "LLM_MODEL=gpt-4.1-mini"
 ]
 
 [tool.ruff]
