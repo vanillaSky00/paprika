@@ -10,22 +10,22 @@ class FakeAction(BaseModel):
 
 # Define skip logic
 should_skip_live = (
-    not settings.OPENAI_API_KEY or 
-    str(settings.OPENAI_API_KEY).startswith("dummy")
+    not settings.LLM_API_KEY or 
+    str(settings.LLM_API_KEY).startswith("dummy")
 )
 
 @pytest.mark.paid
 @pytest.mark.asyncio
 @pytest.mark.skipif(
     should_skip_live,
-    reason="OPENAI_API_KEY missing or dummy; skipping live test.",
+    reason="LLM_API_KEY missing or dummy; skipping live test.",
 )
 @pytest.mark.integration
 async def test_openai_client_structure_live():
     """
     Live integration test for OpenAIClient.generate_structured().
     """
-    client = OpenAIClient(api_key=settings.OPENAI_API_KEY)
+    client = OpenAIClient(api_key=settings.LLM_API_KEY)
 
     result = await client.generate_structured(
         system_prompt="You are a test game agent. Respond with a short JSON-like action.",

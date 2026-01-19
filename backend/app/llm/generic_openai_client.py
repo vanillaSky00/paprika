@@ -36,10 +36,6 @@ class GenericOpenAIBuilder(BaseLLMBuilder):
     def build(self, settings: Settings, model: str):
         if not settings.LLM_API_KEY:
             raise RuntimeError("LLM_API_KEY missing in .env!")
-        if not settings.LLM_MODEL:
-            raise RuntimeError("LLM_MODEL missing in .env!")
-        if not settings.LLM_BASE_URL:
-            raise RuntimeError("LLM_BASE_URL missing in .env!")
         
         return GenericOpenAIClient(
             api_key=settings.LLM_API_KEY,

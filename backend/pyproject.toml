@@ -48,9 +48,9 @@ markers = [
     "paid: tests that call paid APIs",
 ]
 env = [
-    "OPENAI_API_KEY=dummy_test_key",
-    "OPENAI_MODEL=gpt-4.1-mini",
-    "OLLAMA_BASE_URL=http://localhost:11434"
+    "LLM_PROVIDER=General",
+    "LLM_API_KEY=dummy_test_key",
+    "LLM_MODEL=gpt-4.1-mini"
 ]
 
 [tool.ruff]

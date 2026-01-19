@@ -25,18 +25,18 @@ def require_api_key():
     Dependency that forces a skip if the API key is missing or dummy.
     Usage: pass 'require_api_key' as an argument to your test function.
     """
-    key = settings.OPENAI_API_KEY
+    key = settings.LLM_API_KEY
     if not key:
-        pytest.skip("OPENAI_API_KEY is not set")
+        pytest.skip("LLM_API_KEY is not set")
     if key.startswith("dummy") or key == "fake-key":
-        pytest.skip("OPENAI_API_KEY is set to a dummy value (skipping live test)")
+        pytest.skip("LLM_API_KEY is set to a dummy value (skipping live test)")
 
 # --- SHARED SKIP CONDITION (For @pytest.mark.skipif) ---
 # We use this boolean in the decorators below
 skip_live_tests = (
-    not settings.OPENAI_API_KEY or 
-    str(settings.OPENAI_API_KEY).startswith("dummy") or 
-    settings.OPENAI_API_KEY == "fake-key"
+    not settings.LLM_API_KEY or 
+    str(settings.LLM_API_KEY).startswith("dummy") or 
+    settings.LLM_API_KEY == "fake-key"
 )
 
 # ------------------------------------------------------------------
