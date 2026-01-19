@@ -57,8 +57,8 @@ def test_curriculum_prompt_rendering(dummy_perception, mock_dependencies):
 @pytest.mark.paid
 @pytest.mark.asyncio
 @pytest.mark.skipif(
-    not settings.OPENAI_API_KEY,
-    reason="OPENAI_API_KEY not set; skipping live OpenAI test.",
+    not settings.LLM_API_KEY,
+    reason="LLM_API_KEY not set; skipping live OpenAI test.",
 )
 async def test_curriculum_integration_live(dummy_perception, mock_dependencies):
     llm = get_default_llm()

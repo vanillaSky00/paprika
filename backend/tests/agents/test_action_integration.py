@@ -8,8 +8,8 @@ from app.tools import load_global_tools
 
 # Define skip logic
 should_skip_live = (
-    not settings.OPENAI_API_KEY or 
-    str(settings.OPENAI_API_KEY).startswith("dummy")
+    not settings.LLM_API_KEY or 
+    str(settings.LLM_API_KEY).startswith("dummy")
 )
 
 def test_action_integration_prompt_rendering(dummy_perception):
@@ -36,7 +36,7 @@ def test_action_integration_prompt_rendering(dummy_perception):
 @pytest.mark.asyncio
 @pytest.mark.skipif(
     should_skip_live,
-    reason="OPENAI_API_KEY missing or dummy; skipping live test.",
+    reason="LLM_API_KEY missing or dummy; skipping live test.",
 )
 async def test_action_integration_live(dummy_perception):
     """

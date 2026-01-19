@@ -9,8 +9,8 @@ from app.deps import get_default_llm
 
 # Define skip logic
 should_skip_live = (
-    not settings.OPENAI_API_KEY or 
-    str(settings.OPENAI_API_KEY).startswith("dummy")
+    not settings.LLM_API_KEY or 
+    str(settings.LLM_API_KEY).startswith("dummy")
 )
 
 @pytest.fixture
@@ -106,7 +106,7 @@ async def test_skill_learning_logic(mock_dependencies):
 @pytest.mark.asyncio
 @pytest.mark.skipif(
     should_skip_live,
-    reason="OPENAI_API_KEY missing or dummy; skipping live test.",
+    reason="LLM_API_KEY missing or dummy; skipping live test.",
 )
 async def test_skill_integration_live():
     """
