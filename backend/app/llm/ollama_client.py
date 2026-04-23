@@ -2,7 +2,7 @@ from typing import Type, TypeVar
 from langchain_ollama import ChatOllama
 from pydantic import BaseModel
 
-from app.config import Settings
+from app.core.config import Settings
 from app.llm.base import BaseLLMClient, BaseLLMBuilder, llm_registry
 
 T = TypeVar("T", bound=BaseModel)

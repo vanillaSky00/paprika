@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from typing import Type, TypeVar
 from pydantic import BaseModel
 
-from app.config import Settings
+from app.core.config import Settings
 
 T = TypeVar("T", bound=BaseModel)
 logger = logging.getLogger(__name__)

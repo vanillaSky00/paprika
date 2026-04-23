@@ -2,8 +2,8 @@ import pytest
 from unittest.mock import MagicMock
 from app.llm.base import BaseLLMClient
 from app.agents.critic import CriticAgent
-from app.config import settings
-from app.deps import get_default_llm
+from app.core.config import settings
+from app.core.deps import get_default_llm
 from app.api.schemas import CriticOutput, TraceStep
 
 # Define skip logic

@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from app.api.routes import router as api_router
-from app.lifecycle import lifespan
+from app.core.lifecycle import lifespan
 
 app = FastAPI(
     title="Paprika Agent Backend",

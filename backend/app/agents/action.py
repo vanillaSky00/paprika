@@ -4,91 +4,80 @@ import logging
 from langchain_core.messages import HumanMessage
 from langchain_core.tools import StructuredTool
 
-from app.agents.adapter import ObservationAdapter
-from app.api.schemas import AgentAction, Perception
-from app.llm.base import BaseLLMClient
 from app.agents.base import BaseAgent
+from app.api.schemas import AgentAction
+from app.llm.base import BaseLLMClient
 
 logger = logging.getLogger(__name__)
 
 
 class ActionAgent(BaseAgent):
     def __init__(
-        self, 
+        self,
         llm: BaseLLMClient,
         template_name="action",
-        tools: list[StructuredTool] | None = None, 
+        tools: list[StructuredTool] | None = None,
     ):
         super().__init__(llm, template_name, tools)
 
     def render_human_message(
         self,
         *,
-        perception: Perception,
-        current_task,
-        skill_guide="",
-        last_plan="",
-        critique="",
+        context: str,
+        current_task: str,
+        skill_guide: str = "",
+        last_plan: str = "",
+        critique: str = "",
     ) -> HumanMessage:
         """
-        The eyes of LLM: the 'Context' construction, tell llm what happened
+        This method only layers Action-specific sections on top:
+          - the current task
+          - an optional retrieved skill (cold vs. warm start)
+          - Voyager-style critique + last plan on retry
         """
+        content = (
+            "--- TASK ---\n"
+            f"Current Goal: {current_task}\n\n"
+            "--- PERCEPTION ---\n"
+            f"{context}"
+        )
 
-        obs = ObservationAdapter(perception)
-
-        # Make status
-        content = f"""
-        --- OBSERVATION ---
-        Time: {obs.time_display}
-        Location: {obs.location}
-        Holding: {obs.inventory}
-        Visible: {obs.visual_summary}
-        Last Action: {obs.last_execution_summary}
-        
-        --- TASK ---
-        Current Goal: {current_task}
-        """
-
-        # Cold(1st) Start and Warm(2nd and later) Start
-        # The ActionAgent doesn’t need pre-stored skills in memory—it can improvise and figure out how to act on the fly.
+        # Cold(1st) vs. Warm(2nd+) start. ActionAgent can improvise without
+        # a stored skill, but follows the guide when it matches.
         if skill_guide:
-            content += f"""
-            --- SUGGESTED PROCEDURE (MEMORY) ---
-            I have done this task before. Here is the guide:
-            {skill_guide}
-            
-            INSTRUCTION: Follow the guide if it matches the current situation.
-            """
-        
-        # Voyager Feedback Loop
+            content += (
+                "\n\n--- SUGGESTED PROCEDURE (MEMORY) ---\n"
+                "I have done this task before. Here is the guide:\n"
+                f"{skill_guide}\n"
+                "INSTRUCTION: Follow the guide if it matches the current situation."
+            )
+
+        # Voyager feedback loop.
         if last_plan and critique:
-            content += f"""
-            --- PREVIOUS FAILURE ---
-            Your last plan failed.
-            Plan: {json.dumps(last_plan)}
-            Error/Critique: {critique}
-            
-            ADVICE: Use a different tool or check your arguments.
-            """
+            content += (
+                "\n\n--- PREVIOUS FAILURE ---\n"
+                "Your last plan failed.\n"
+                f"Plan: {json.dumps(last_plan)}\n"
+                f"Error/Critique: {critique}\n"
+                "ADVICE: Use a different tool or check your arguments."
+            )
 
         return HumanMessage(content=content)
 
     async def generate_plan(
         self,
         *,
-        perception: Perception,
-        current_task,
-        skill_guide="",
-        last_plan="",
-        critique="",
+        context: str,
+        current_task: str,
+        skill_guide: str = "",
+        last_plan: str = "",
+        critique: str = "",
     ) -> list[AgentAction]:
-        """
-        The Main Loop: Context -> LLM -> JSON
-        """
+        
         response_text = await self.llm.generate_response(
             system_prompt=self.render_system_message().content,
             user_message=self.render_human_message(
-                perception=perception,
+                context=context,
                 current_task=current_task,
                 skill_guide=skill_guide,
                 last_plan=last_plan,
@@ -96,7 +85,7 @@ class ActionAgent(BaseAgent):
             ).content,
         )
 
-        logger.info(f"\n\n[Action Agent response]:{response_text}\n")
+        logger.info("\n\n[Action Agent response]:%s\n", response_text)
 
         return self._generate_plan_helper(response_text)
 
@@ -108,19 +97,17 @@ class ActionAgent(BaseAgent):
 
         if not data:
             return []
-        
+
         if isinstance(data, dict):
             data = [data]
-            
+
         valid_actions = []
         for i, item in enumerate(data):
             try:
-                # Can add customized error handle if llm use other key in dict rather than 'function'
                 action = AgentAction(**item)
                 valid_actions.append(action)
-
             except Exception as e:
-                logger.warning(f"Skipping invalid action at index {i}: {e}")
+                logger.warning("Skipping invalid action at index %d: %s", i, e)
                 continue
 
         return valid_actions

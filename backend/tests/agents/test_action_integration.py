@@ -2,8 +2,8 @@ import pytest
 from unittest.mock import MagicMock
 from app.llm.base import BaseLLMClient
 from app.agents.action import ActionAgent
-from app.config import settings
-from app.deps import get_default_llm
+from app.core.config import settings
+from app.core.deps import get_default_llm
 from app.tools import load_global_tools
 
 # Define skip logic

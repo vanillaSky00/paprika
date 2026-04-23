@@ -13,7 +13,7 @@ from app.api.schemas import (
     Sensory,
     TraceStep 
 )
-from app.config import settings
+from app.core.config import settings
 
 def pytest_configure(config):
     config.addinivalue_line("markers", "paid: tests that call paid APIs")

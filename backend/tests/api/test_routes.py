@@ -2,7 +2,7 @@ import pytest
 from fastapi.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
-from app.config import settings
+from app.core.config import settings
 from app.main import app
 from app.api.schemas import AgentAction
 

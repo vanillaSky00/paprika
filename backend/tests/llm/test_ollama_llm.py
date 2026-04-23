@@ -1,8 +1,8 @@
 import pytest
 from pydantic import BaseModel, Field
 
-from app.config import settings
-from app.deps import get_llm
+from app.core.config import settings
+from app.core.deps import get_llm
 
 @pytest.mark.paid
 @pytest.mark.asyncio

@@ -1,9 +1,18 @@
 import os
-
+from pydantic import BaseModel
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+class LoggingSettings(BaseModel):
+    level: str = "INFO"
+    file_path: str | None = None
+    max_bytes: int = 10 * 1024 * 1024
+    backup_count: int = 5
+
+
 class Settings(BaseSettings):
+    REDIS_URL: str ="redis://redis:6379/0"
+    
     LLM_PROVIDER: str = "openai"
     LLM_MODEL: str = "gpt-4.1-mini"
 
@@ -25,14 +34,18 @@ class Settings(BaseSettings):
     OPENWEATHER_API_KEY: str | None = None
 
     DATABASE_URL: str = "postgresql+asyncpg://admin:password@localhost:5432/paprika_ai"
-    
+
+    debug: bool = False
+    log: LoggingSettings = LoggingSettings()
+
     model_config = SettingsConfigDict(
-        env_file=".env",  # tell Pydantic where to load env variables from
+        env_file=".env",
         extra="ignore",
-        case_sensitive=True
+        case_sensitive=False,
+        env_nested_delimiter="__",
     )
 
-
+    
 settings = Settings()
 
 # Export to System Environment
@@ -42,3 +55,5 @@ if settings.LANGCHAIN_API_KEY:
     os.environ["LANGCHAIN_ENDPOINT"] = settings.LANGCHAIN_ENDPOINT
     os.environ["LANGCHAIN_API_KEY"] = settings.LANGCHAIN_API_KEY
     os.environ["LANGCHAIN_PROJECT"] = settings.LANGCHAIN_PROJECT
+    
+    

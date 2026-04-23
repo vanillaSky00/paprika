@@ -5,8 +5,8 @@ from app.llm.base import BaseLLMClient
 from app.agents.curriculum import CurriculumAgent
 from app.memory.base import BaseMemoryStore
 from app.api.schemas import CurriculumOutput, MemoryDTO
-from app.config import settings
-from app.deps import get_default_llm
+from app.core.config import settings
+from app.core.deps import get_default_llm
 
 @pytest.fixture
 def mock_dependencies():
