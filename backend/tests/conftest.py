@@ -99,7 +99,7 @@ def dummy_perception(dummy_world_objects):
             TraceStep(
                 step_index=1,
                 function="move_to",
-                id="Stove_01",          # was target_id
+                target_id="Stove_01",
                 status="failed",
                 message="Too far from Stove_01",
             )
