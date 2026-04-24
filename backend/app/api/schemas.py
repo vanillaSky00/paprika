@@ -67,17 +67,32 @@ class SelfState(BaseModel):
 class Statistics(BaseModel):
     table_item_count: int = 0
     table_items: list[str] = Field(default_factory=list)
-    
+
+class AssemblyView(BaseModel):
+    """Unity-authoritative burger-assembly snapshot.
+
+    Unity owns the plate state machine now; the backend is a pure
+    consumer. `plate_location` is the parking-table GameObject name
+    holding the PLATE, `stack` is the ingredients already accepted by
+    the plate (canonical names like "BreadSlice"), and `next_expected`
+    is the next layer the plate will accept.
+    """
+    plate_location: str | None = None
+    stack: list[str] = Field(default_factory=list)
+    next_expected: str | None = None
+    is_done: bool = False
+
 class Perception(BaseModel):
     """
     Why: Unity send character's scenory perception for agent to make plans
     """
     model_config = ConfigDict(extra="ignore") # Ignores extra fields from Unity, preventing crashes on updates
-    
+
     self: SelfState
     sensory: Sensory
     execution_trace: list[TraceStep] = Field(default_factory=list)
-    statistics: Statistics 
+    statistics: Statistics
+    assembly: AssemblyView = Field(default_factory=AssemblyView)
 
 
 # --- DB data or Memory ------------------------------------

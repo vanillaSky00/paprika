@@ -26,10 +26,9 @@ from app.api.schemas import Perception
 #  KitchenRegistry  --  Python-owned domain knowledge
 # =============================================================================
 #
-#  The original plan's `is_processed()` was left empty. We fill it here with a
-#  hard-coded registry rather than relying on string heuristics, because Unity
+#  Hard-coded registry rather than relying on string heuristics, because Unity
 #  naming is inconsistent:
-#    - Containers emit uppercase raw names:     MEATBALL, TOMATO, ONION
+#    - Containers emit uppercase raw names:      MEATBALL, TOMATO, ONION
 #    - Stations emit mixed-case processed names: CookedMeat, TomatoSlice
 #    - Preparation tables come as:               Preparation1..4  (shared)
 #                                                Player_preparation_1..2 (personal)
@@ -37,18 +36,14 @@ from app.api.schemas import Perception
 #  Centralising this here means agents and renderers never re-derive it.
 # =============================================================================
 
-# Raw ingredient names as they appear inside container.state.held_item
+
 RAW_INGREDIENTS: frozenset[str] = frozenset({
     "MEATBALL", "TOMATO", "ONION", "LETTUCE", "CHEESE", "BREAD",
 })
-
-# Processed ingredient names as they appear after chopping or cooking
 PROCESSED_INGREDIENTS: frozenset[str] = frozenset({
     "CookedMeat",
     "TomatoSlice", "OnionSlice", "LettuceSlice", "CheeseSlice", "BreadSlice",
 })
-
-# Station processing rules: ingredient -> (station_id, action)
 PROCESSING_RULES: dict[str, tuple[str, str]] = {
     "MEATBALL": ("Oven",     "cook"),
     "TOMATO":   ("CutBoard", "chop"),
@@ -57,8 +52,6 @@ PROCESSING_RULES: dict[str, tuple[str, str]] = {
     "CHEESE":   ("CutBoard", "chop"),
     "BREAD":    ("CutBoard", "chop"),
 }
-
-# Object classification by id prefix / exact match
 CONTAINER_BOXES: frozenset[str] = frozenset({
     "MeatBox", "TomatoBox", "OnionBox", "LettuceBox", "CheeseBox", "BreadBox",
 })
@@ -75,22 +68,31 @@ PLAYER_PREP_TABLES: tuple[str, ...] = (
     "Player_preparation_1", "Player_preparation_2",
 )
 
-# Hamburger assembly order — PLACEMENT order on a Player_preparation table,
-# first placement = bottom bun, last placement = top bun. Uses the Unity
-# *processed* ingredient names (what the agent actually holds after a
-# chop / cook action).
+# Where the PLATE starts each game. It is NOT the assembly surface —
+# the agent picks the plate up here, carries it to a parking table,
+# puts it down, and that table becomes the assembly surface.
+PLATE_SOURCE: str = "PlateBoard"
+
+# Hamburger assembly order — PLACEMENT order onto the plate.
 HAMBURGER_STACK: tuple[str, ...] = (
-    "BreadSlice",    # bottom bun
-    "CheeseSlice",
-    "OnionSlice",
-    "LettuceSlice",
-    "TomatoSlice",
+    "BreadSlice",    # 1st placement — top bun of finished burger
     "CookedMeat",
-    "BreadSlice",    # top bun
+    "TomatoSlice",
+    "LettuceSlice",
+    "OnionSlice",
+    "CheeseSlice",
+    "BreadSlice",    # 7th placement — bottom bun of finished burger
 )
 
 
-def is_processed(item_name: Optional[str]) -> bool:
+def is_plate(item_name: str | None) -> bool:
+    """True if the named item refers to a PLATE (case-insensitive)."""
+    if not item_name:
+        return False
+    return item_name.strip().upper() == "PLATE"
+
+
+def is_processed(item_name: str | None) -> bool:
     """Return True if the given item name refers to a processed ingredient.
 
     Unity is inconsistent: the same item shows up as `CookedMeat` in some
@@ -345,11 +347,9 @@ class PerceptionRenderer:
                 return f"- The Trash is here. You can discard your raw {held.name} here if it is no longer needed."
             return None
 
-        # --- PlateBoard ---------------------------------------------------
+        # --- PlateBoard (assembly target) --------------------------------
         if oid == "PlateBoard":
-            if held.is_processed:
-                return f"- The PlateBoard has a PLATE. You can assemble your {held.name} onto a plate here."
-            return None
+            return self._plate_affordance(state, held)
 
         return None
 
@@ -403,27 +403,69 @@ class PerceptionRenderer:
         if self._already_prepared(item_name, table_items):
             return f"- The {oid} still has {item_name}, but a processed version is already on the prep table — do NOT gather more."
 
+        # Every box yields a RAW ingredient. Spell that out so the LLM
+        # doesn't confuse e.g. BREAD (raw) with BreadSlice (processed).
+        process_verb = "cooked on the Oven" if item_name == "MEATBALL" else "chopped on the CutBoard"
         if not held.is_empty_hands:
-            return f"- The {oid} has {item_name} available, but your hands are full. Put down your current item first."
-
-        return f"- The {oid} has {item_name} ready to pick up."
+            return (
+                f"- The {oid} has RAW {item_name} available (must be {process_verb} "
+                f"before it can be used), but your hands are full. "
+                f"Put down your current item first."
+            )
+        return (
+            f"- The {oid} has RAW {item_name} ready to pick up. It MUST be "
+            f"{process_verb} before it can go on a plate."
+        )
 
     def _prep_table_affordance(self, oid: str, state: dict, held: HeldItem) -> Optional[str]:
-        occupied = state.get("is_occupied") or state.get("held_item") is not None
+        """Preparation1..4 and Player_preparation_1..2 are
+        interchangeable surfaces that serve two roles:
+        (a) PARKING for processed ingredients, or
+        (b) the ASSEMBLY SURFACE — if the PLATE has been placed here,
+            all subsequent burger layers are stacked here.
+        Role is decided per-table by whether held_item == PLATE."""
         item_on_table = state.get("held_item")
+        stack_str = " → ".join(HAMBURGER_STACK)
 
-        if is_player_prep_table(oid):
-            return self._player_prep_affordance(oid, item_on_table, occupied, held)
-        return self._shared_prep_affordance(oid, item_on_table, occupied, held)
+        # Table currently holds the PLATE → this is the assembly surface.
+        if is_plate(item_on_table):
+            if held.name == "BreadSlice":
+                return (
+                    f"- {oid} has the PLATE — this is the ASSEMBLY SURFACE. "
+                    f"Place your BreadSlice here as the FIRST layer (top bun "
+                    f"of the finished burger). Order: {stack_str}."
+                )
+            if held.is_processed:
+                return (
+                    f"- {oid} has the PLATE — assembly surface. Assembly must "
+                    f"start with a BreadSlice (you are holding {held.name}). "
+                    f"Park {held.name} on another table first, then fetch a BreadSlice."
+                )
+            if held.name == "PLATE":
+                return f"- {oid} already has a PLATE. Don't stack plates; go prep a BreadSlice."
+            if held.is_raw:
+                process_hint = "Oven" if held.name == "MEATBALL" else "CutBoard"
+                return (
+                    f"- {oid} has the PLATE — but you are holding RAW {held.name}. "
+                    f"RAW ingredients NEVER go on the plate. Take it to {process_hint} "
+                    f"to process first, then come back."
+                )
+            return (
+                f"- {oid} has the PLATE — this is the ASSEMBLY SURFACE. "
+                f"Fetch a BreadSlice to start. Order: {stack_str}."
+            )
 
-    def _shared_prep_affordance(
-        self, oid: str, item_on_table, occupied: bool, held: HeldItem,
-    ) -> Optional[str]:
-        """Preparation1..Preparation4 — short-term parking for processed
-        ingredients. NOT the assembly table."""
-        if occupied and item_on_table:
+        # Table holds a non-plate item. Unity reports only the TOP item,
+        # so a "BreadSlice" here is ambiguous between "parked BreadSlice"
+        # and "BreadSlice just placed on a plate that's underneath".
+        # Describe truthfully and let the agent reason from [D] history.
+        if item_on_table:
             if is_processed(item_on_table):
-                return f"- {oid} holds a prepared {item_on_table}. Leave it here until burger assembly."
+                return (
+                    f"- {oid} shows {item_on_table} on top. If this table is "
+                    f"your assembly surface (see [D] history for the PLATE put_down), "
+                    f"stack the next layer here; otherwise it's a parked ingredient."
+                )
             if is_raw(item_on_table):
                 return (
                     f"- {oid} holds a RAW {item_on_table}. This is clutter — "
@@ -431,9 +473,11 @@ class PerceptionRenderer:
                 )
             return f"- {oid} holds {item_on_table}."
 
-        # Empty table
+        # Empty table.
+        if held.name == "PLATE":
+            return f"- {oid} is empty. `put_down` the PLATE here to set up the burger assembly surface."
         if held.is_processed:
-            return f"- {oid} is empty. You can park your {held.name} here until it's time to assemble the burger."
+            return f"- {oid} is empty. You can park your {held.name} here, or take it to the plated table if one exists."
         if held.is_raw:
             return (
                 f"- {oid} is empty. You MAY temporarily drop {held.name} here to free your hands, "
@@ -441,44 +485,31 @@ class PerceptionRenderer:
             )
         return None  # empty table, empty hands → nothing worth saying
 
-    def _player_prep_affordance(
-        self, oid: str, item_on_table, occupied: bool, held: HeldItem,
-    ) -> Optional[str]:
-        """Player_preparation_N — primary use: burger assembly in strict
-        stack order. Secondary use: overflow storage when every shared
-        Preparation table is occupied."""
-        stack_str = " → ".join(HAMBURGER_STACK)
+    def _plate_affordance(self, state: dict, held: HeldItem) -> str:
+        """PlateBoard is the SOURCE of the PLATE, not the assembly
+        surface. Agent picks the plate up here, carries it to any
+        Preparation<N> or Player_preparation_<N>, and puts it down —
+        that table becomes the assembly surface."""
+        on_board = state.get("held_item")
 
-        if occupied and item_on_table:
-            if is_processed(item_on_table):
-                return (
-                    f"- {oid} has {item_on_table} on the stack. Burger order (bottom→top): "
-                    f"{stack_str}. Add the next missing layer if you are holding it."
-                )
-            if is_raw(item_on_table):
-                return (
-                    f"- {oid} has a RAW {item_on_table} on it — wrong. This table is for "
-                    f"burger assembly; pick it up and process or trash it."
-                )
-            return f"- {oid} holds {item_on_table}."
+        if not is_plate(on_board):
+            return (
+                "- PlateBoard has no PLATE available. Check the parking tables "
+                "for an already-placed plate (the assembly surface)."
+            )
 
-        # Empty table
-        if held.name == "BreadSlice":
+        # PlateBoard has a PLATE ready to take.
+        if held.is_empty_hands:
             return (
-                f"- {oid} is empty — place your BreadSlice here as the BOTTOM bun to start a "
-                f"burger. Stack order (bottom→top): {stack_str}."
+                "- PlateBoard has a PLATE. `pickup` it here, then carry it to "
+                "any Preparation<N> or Player_preparation_<N> and `put_down` — "
+                "that table becomes the burger assembly surface."
             )
-        if held.is_processed:
-            return (
-                f"- {oid} is empty. This is an assembly table; the stack must start with a "
-                f"BreadSlice bun (you are holding {held.name}). Park {held.name} on a shared "
-                f"Preparation table until the bun is down."
-            )
-        if held.is_raw:
-            return f"- {oid} is empty and is for burger assembly — raw items do not belong here."
+        if held.name == "PLATE":
+            return "- PlateBoard still shows a PLATE, but you're already holding one. Go put yours down on a table."
         return (
-            f"- {oid} is empty and ready for burger assembly. Fetch a BreadSlice to start. "
-            f"Stack order (bottom→top): {stack_str}."
+            f"- PlateBoard has a PLATE, but your hands are full with {held.name}. "
+            f"Park {held.name} first, then return for the plate."
         )
 
     # ---- helpers --------------------------------------------------------
@@ -522,10 +553,19 @@ class PerceptionRenderer:
 
         parts: list[str] = []
         if seen:
-            processed = [(t, i) for (t, i) in seen if is_processed(i)]
+            plated_tables = [t for (t, i) in seen if is_plate(i)]
+            processed = [(t, i) for (t, i) in seen if is_processed(i) and not is_plate(i)]
             raw = [(t, i) for (t, i) in seen if is_raw(i) and not is_processed(i)]
-            other = [(t, i) for (t, i) in seen if not is_processed(i) and not is_raw(i)]
+            other = [
+                (t, i) for (t, i) in seen
+                if not is_processed(i) and not is_raw(i) and not is_plate(i)
+            ]
 
+            if plated_tables:
+                parts.append(
+                    f"ASSEMBLY SURFACE: {', '.join(plated_tables)} has the PLATE — "
+                    "stack burger layers here in order."
+                )
             if processed:
                 listing = ", ".join(f"{i} @ {t}" for (t, i) in processed)
                 parts.append(
@@ -637,14 +677,42 @@ class PerceptionRenderer:
     @staticmethod
     def _correction_hint(step) -> str:
         msg = (step.message or "").lower()
+        fn = getattr(step, "function", "") or ""
+        target = getattr(step, "target_id", "") or ""
+
         if "too far" in msg or "out of range" in msg:
-            return f"Move closer to {step.target_id} before retrying."
+            return (
+                f"Move closer to {target} before retrying. Plan an extra "
+                f"`move_to {target}` ahead of the next `{fn} {target}`."
+            )
         if "path blocked" in msg or "unreachable" in msg:
-            return f"Try an alternate route or pick an intermediate waypoint on the way to {step.target_id}."
+            return f"Try an alternate route or pick an intermediate waypoint on the way to {target}."
+
+        # Distinguish between the two 'empty' failure modes:
+        #   - `put_down` with empty hands → a prior `pickup` silently
+        #     failed (Unity's `move_to` sometimes reports success while
+        #     leaving the agent slightly out of pickup range). Recovery
+        #     is to repeat the `move_to` before retrying `pickup`.
+        #   - `pickup` from an empty source → the container/table ran
+        #     out; pick a different source.
+        if fn == "put_down" and ("empty" in msg or "nothing" in msg):
+            return (
+                "Hands are empty at put_down — your earlier `pickup` "
+                "silently failed (Unity's `move_to` may report success "
+                "while leaving you slightly out of pickup range). In your "
+                "retry plan, repeat the `move_to <source>` immediately "
+                "before `pickup <source>` to re-approach, then carry on "
+                "to the downstream steps."
+            )
+        if fn == "pickup" and "empty" in msg:
+            return f"{target} is empty — pick a different source."
         if "hands full" in msg or "holding" in msg:
-            return "Put down your current item on the nearest Preparation table first."
+            return "Put down your current item on the nearest parking table first."
         if "empty" in msg:
-            return f"{step.target_id} is empty — pick a different source."
+            # Last-resort fallback — unknown "empty" message on a
+            # non-pickup / non-put_down step. Kept to avoid losing the
+            # original heuristic coverage.
+            return f"{target} is empty — pick a different source."
         return "Re-examine the perception block and choose a different action."
 
     # ---- [LAYOUT] CANONICAL OBJECT IDs ----------------------------------
@@ -656,19 +724,36 @@ class PerceptionRenderer:
     @staticmethod
     def render_kitchen_layout() -> str:
         stack_str = " → ".join(HAMBURGER_STACK)
+        parking = SHARED_PREP_TABLES + PLAYER_PREP_TABLES
+        raw_names = ", ".join(sorted(RAW_INGREDIENTS))
         return (
             "Use these EXACT strings as target_id — do not rename, pluralise, "
             "or add/remove underscores:\n"
             f"- Stations: {', '.join(sorted(STATIONS))}\n"
             f"- Ingredient boxes: {', '.join(sorted(CONTAINER_BOXES))}\n"
-            f"- Shared prep tables, for PARKING processed ingredients "
-            f"(NO underscore): {', '.join(SHARED_PREP_TABLES)}\n"
-            f"- Player hand-off tables, for BURGER ASSEMBLY "
-            f"(WITH underscore, lowercase 'p'): {', '.join(PLAYER_PREP_TABLES)}\n"
-            f"Burger stack — place on a Player table in THIS order "
-            f"(bottom→top): {stack_str}.\n"
-            "If all shared prep tables are occupied, a Player table may be used "
-            "as temporary overflow, but assembly is its primary purpose."
+            f"- Parking / assembly tables (interchangeable): "
+            f"{', '.join(parking)}\n"
+            f"- PlateBoard: the SOURCE of the PLATE. Assembly does NOT happen here.\n"
+            "\n"
+            "INGREDIENT NAMES — RAW vs PROCESSED (these are DIFFERENT items):\n"
+            f"  RAW       (come from boxes, cannot go on plate): {raw_names}\n"
+            "  PROCESSED (come from stations, valid for plate): BreadSlice, "
+            "CheeseSlice, OnionSlice, LettuceSlice, TomatoSlice, CookedMeat.\n"
+            "MEATBALL becomes CookedMeat via the Oven; every other raw item "
+            "becomes a <Name>Slice via the CutBoard. Raw → processed is a "
+            "REQUIRED station step.\n"
+            "\n"
+            "BURGER ASSEMBLY FLOW (3 phases):\n"
+            "1. PLATE SETUP — `move_to PlateBoard` → `pickup PlateBoard` → "
+            "`move_to <any parking table>` → `put_down <that table>`. "
+            "That table is now the ASSEMBLY SURFACE.\n"
+            "2. PREP — for each burger layer, `<Box> → Station → process → "
+            "pickup → put_down on any other parking table` (short-term park).\n"
+            "3. STACK — carry each processed ingredient from its parking "
+            "table to the plated table and `put_down` in this order:\n"
+            f"   {stack_str}.\n"
+            "Bread is placed TWICE. FIRST placement is the TOP bun of the "
+            "finished burger; LAST placement is the BOTTOM bun."
         )
 
     # ---- MASTER ASSEMBLY ------------------------------------------------
@@ -691,7 +776,54 @@ class PerceptionRenderer:
             "### [D] SHORT-TERM MEMORY (recent actions)\n"
             f"{self.render_history()}\n\n"
             "### [E] FAILURE CONTEXT\n"
-            f"{self.render_failure_context(retry_count=retry_count, current_task=current_task)}"
+            f"{self.render_failure_context(retry_count=retry_count, current_task=current_task)}\n\n"
+            "### [F] ASSEMBLY PROGRESS (authoritative — reported by Unity)\n"
+            f"{self._render_assembly_progress()}"
+        )
+
+    def _render_assembly_progress(self) -> str:
+        """Unity owns the plate state machine and publishes it as
+        `perception.assembly`. We just format it.
+
+        Unity does NOT visualize stacked layers on the plated table via
+        its held_item (that stays "PLATE"); this section remains the
+        only source-of-truth for stack progress — do not cross-check
+        against [B] or [C]."""
+        assembly = getattr(self._p, "assembly", None)
+        if assembly is None:
+            return (
+                "No plate set up yet. First required task: PLATE_SETUP — "
+                "pick up the PLATE from PlateBoard and put it on any parking table."
+            )
+
+        plate = getattr(assembly, "plate_location", None)
+        stack = list(getattr(assembly, "stack", []) or [])
+        next_expected = getattr(assembly, "next_expected", None)
+        is_done = bool(getattr(assembly, "is_done", False))
+
+        if not plate:
+            return (
+                "No plate set up yet. First required task: PLATE_SETUP — "
+                "pick up the PLATE from PlateBoard and put it on any parking table."
+            )
+        if is_done:
+            placed_str = " → ".join(stack) if stack else "(complete)"
+            return (
+                f"Burger COMPLETE on {plate}: {placed_str}. Pick up the finished "
+                f"burger or start a new PLATE_SETUP on a different parking table."
+            )
+        if not stack:
+            first = next_expected or "BreadSlice"
+            return (
+                f"Plate is set up at {plate} — waiting for the first layer "
+                f"({first})."
+            )
+        placed_str = " → ".join(stack)
+        progress = len(stack)
+        next_hint = f" Next expected layer: {next_expected}." if next_expected else ""
+        return (
+            f"Plated table: {plate}. Placed so far ({progress}): {placed_str}."
+            f"{next_hint}"
         )
 
 
@@ -704,7 +836,7 @@ def build_perception_context(
     retry_count: int = 0,
     current_task: str = "",
 ) -> str:
-    """Shortcut used by LangGraph nodes."""
+    """Shortcut used by LangGraph nodes / the FastAPI route."""
     return PerceptionRenderer(perception).build_perception_context(
         retry_count=retry_count,
         current_task=current_task,

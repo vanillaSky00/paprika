@@ -105,13 +105,14 @@ class CurriculumAgent(BaseAgent):
             # Fallback must be a concrete, verifiable pipeline. A vague
             # "Explore the area" task cascades badly: action emits bare
             # move_to steps, critic accepts them (the world matched the
-            # vague intent), and the agent visibly wanders. Default to
-            # the first burger ingredient instead — always productive.
-            logger.error("Max retries reached. Falling back to CookedMeat pipeline.")
+            # vague intent), and the agent visibly wanders. PLATE_SETUP
+            # is the safest default — it's the first phase of every
+            # burger and always productive regardless of kitchen state.
+            logger.error("Max retries reached. Falling back to PLATE_SETUP.")
             return CurriculumOutput(
-                task="Prepare a CookedMeat and place it on a Preparation table",
-                reasoning="Curriculum parse failed; defaulting to the first missing ingredient.",
-                difficulty=2,
+                task="Set up the assembly plate on Preparation1",
+                reasoning="Curriculum parse failed; defaulting to plate setup so the burger can start.",
+                difficulty=1,
             )
 
         # On retry, tell the model exactly what went wrong last time.

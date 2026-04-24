@@ -94,30 +94,38 @@ public class ActionPut : MonoBehaviour, IAgentAction
             // --- 原本的放置邏輯 (IPutItemFull) ---
             if (targetObj.TryGetComponent<IPutItemFull>(out IPutItemFull itemPutBox))
             {
-                bool success = itemPutBox.PutItem(inventory.CurrentType);
+                ItemType heldItem = inventory.CurrentType;
+
+                // Capture assembly state BEFORE put_down so we can describe
+                // the stack transition / rejection with precise context.
+                Table assemblyTable = ResolveAssemblyTable(targetObj);
+                bool wasAssemblySurface = assemblyTable != null && assemblyTable.IsAssemblySurface;
+                ItemType expectedLayer = wasAssemblySurface
+                    ? assemblyTable.NextExpectedAssemblyType
+                    : ItemType.NONE;
+
+                bool success = itemPutBox.PutItem(heldItem);
 
                 if (success)
                 {
-                    string msg = $"Put item on {targetId}";
                     inventory.ClearHand();
                     agentState.DropObject();
 
-                    Debug.Log($"[ActionPut] 成功把 {inventory.CurrentType} 放在 {targetId}");
-                    
-                    // 🔥 紀錄成功
+                    string msg = BuildPutSuccessMessage(targetId, heldItem, assemblyTable, wasAssemblySurface);
+                    Debug.Log($"[ActionPut] 成功把 {heldItem} 放在 {targetId}");
+
                     if (networkManager) networkManager.RecordActionTrace(ActionName, targetId, true, msg);
-                    
+
                     agentState.ReportActionFinished(true, msg);
                 }
                 else
                 {
-                    string msg = "Target refused item (Full?)";
-                    Debug.LogWarning($"[ActionPut] {targetId} 拒絕接收 (可能是滿了)");
-                    
-                    // 🔥 紀錄失敗
+                    string msg = BuildPutFailureMessage(targetId, heldItem, assemblyTable, wasAssemblySurface, expectedLayer);
+                    Debug.LogWarning($"[ActionPut] {targetId} 拒絕接收: {msg}");
+
                     if (networkManager) networkManager.RecordActionTrace(ActionName, targetId, false, msg);
-                    
-                    agentState.ReportActionFinished(false, "Target refused item");
+
+                    agentState.ReportActionFinished(false, msg);
                 }
             }
             else
@@ -135,11 +143,64 @@ public class ActionPut : MonoBehaviour, IAgentAction
         {
             string msg = $"Target container '{targetId}' not found";
             Debug.LogError($"[ActionPut] {msg}");
-            
+
             // 🔥 紀錄失敗
             if (networkManager) networkManager.RecordActionTrace(ActionName, targetId, false, msg);
-            
+
             agentState.ReportActionFinished(false, "Target container not found");
         }
+    }
+
+    // Resolves the underlying Table hosting the burger plate, whether the
+    // LLM pointed `put_down` at the Table directly or at a TableBox wrapper.
+    private static Table ResolveAssemblyTable(GameObject target)
+    {
+        if (target == null) return null;
+        Table direct = target.GetComponent<Table>();
+        if (direct != null) return direct;
+        TableBox box = target.GetComponent<TableBox>();
+        return box != null ? box.table : null;
+    }
+
+    private static string BuildPutSuccessMessage(
+        string targetId,
+        ItemType heldItem,
+        Table assemblyTable,
+        bool wasAssemblySurface)
+    {
+        if (wasAssemblySurface && assemblyTable != null)
+        {
+            int placed = assemblyTable.AssemblyStack.Count;
+            int total = assemblyTable.IsAssemblyDone
+                ? placed
+                : placed + (assemblyTable.NextExpectedAssemblyType == ItemType.NONE ? 0 : 1);
+            string progress = total > 0 ? $"{placed}/{total}" : placed.ToString();
+
+            if (assemblyTable.IsAssemblyDone)
+                return $"Stacked {heldItem} on {targetId} — burger COMPLETE ({progress}).";
+
+            ItemType next = assemblyTable.NextExpectedAssemblyType;
+            string nextHint = next != ItemType.NONE ? $" Next expected: {next}." : "";
+            return $"Stacked {heldItem} on {targetId} (plate {progress}).{nextHint}";
+        }
+        return $"Put {heldItem} on {targetId}";
+    }
+
+    private static string BuildPutFailureMessage(
+        string targetId,
+        ItemType heldItem,
+        Table assemblyTable,
+        bool wasAssemblySurface,
+        ItemType expectedLayer)
+    {
+        if (wasAssemblySurface && assemblyTable != null)
+        {
+            if (assemblyTable.IsAssemblyDone)
+                return $"{targetId} plate is COMPLETE — pick up the finished burger instead of stacking more.";
+            if (expectedLayer != ItemType.NONE && expectedLayer != heldItem)
+                return $"{targetId} plate rejected {heldItem} — next expected layer is {expectedLayer}.";
+            return $"{targetId} plate rejected {heldItem}.";
+        }
+        return $"{targetId} is already occupied — pick a different table.";
     }
 }

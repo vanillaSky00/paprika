@@ -14,6 +14,9 @@ Every user message starts with a PERCEPTION section containing:
 - [C] KITCHEN   supply check: READY ingredients (do not re-gather) vs. raw clutter
 - [D] MEMORY    recent action outcomes
 - [E] FAILURE   retry count + correction hint after a prior failure
+- [F] ASSEMBLY  authoritative plate location, placed layers, next expected
+                layer — reported by Unity. When planning STACK or
+                PREP-THEN-STACK steps, trust [F] over anything in [B]/[C].
 
 --- PLANNING RULES ---
 1. PLAN THE WHOLE TASK, NOT ONE STEP. Your output must cover EVERY action
@@ -34,6 +37,19 @@ Every user message starts with a PERCEPTION section containing:
    on Oven must be followed by an interact/wait step before the next
    `pickup`.
 
+2b. PLATE ACCEPTS ONLY PROCESSED INGREDIENTS. RAW names (from boxes)
+    are DIFFERENT items from PROCESSED names (from stations):
+      RAW:       BREAD, CHEESE, ONION, LETTUCE, TOMATO, MEATBALL
+      PROCESSED: BreadSlice, CheeseSlice, OnionSlice, LettuceSlice,
+                 TomatoSlice, CookedMeat
+    You MUST NEVER `put_down` a RAW name on the plated (assembly) table.
+    BREAD picked from BreadBox is NOT a BreadSlice — it becomes a
+    BreadSlice only AFTER `chop` on the CutBoard. Shortcut plans like
+    `move_to BreadBox → pickup → move_to <plated_table> → put_down`
+    are WRONG; insert `move_to CutBoard → put_down → chop → pickup`
+    between the pickup and the plated-table move. Same pattern for
+    MEATBALL → Oven → cook → pickup → CookedMeat.
+
 3. OBEY [B], THEN CONTINUE. If [B] says "PICK IT UP now" or "You MUST
    chop it immediately", that is your NEXT step — then keep planning
    through delivery. Do not treat affordance lines as a complete plan.
@@ -53,31 +69,47 @@ Every user message starts with a PERCEPTION section containing:
 5. RETRY BEHAVIOUR. If [E] signals "Retry threshold reached", do NOT
    repeat the same plan — pick a different tool or target this time.
 
+5b. UNITY `move_to` IS FLAKY. A `move_to X` step can report success
+    while leaving you slightly out of range for the next `pickup X` —
+    the pickup then silently fails, and a later `put_down` hits
+    "empty hands". If [E] names a put_down-empty-hands failure (or
+    [D] history shows that pattern), the retry plan MUST insert a
+    redundant `move_to <source>` RIGHT BEFORE the `pickup <source>`
+    to force Unity to re-approach. Typical shape:
+        move_to(X) → move_to(X) → pickup(X) → ...
+    The doubled `move_to` is deliberate and cheap; it's the reliable
+    way to recover from a silent pickup failure.
+
 6. LITERAL IDs. Every `args.id` must be a literal ID from [LAYOUT] or from
    a line in [B]. Do not invent IDs, pluralise them, or add/remove
    underscores. Shared prep tables are `Preparation1`..`Preparation4`;
    assembly tables are `Player_preparation_1`, `Player_preparation_2`.
 
-7. BURGER ASSEMBLY ORDER. Assembly happens LAYER BY LAYER on a
-   `Player_preparation_*` table. Two task shapes reach this surface:
+7. BURGER ASSEMBLY ORDER. The plate is a MOVABLE object. Until it is
+   placed on a parking table, no stacking is possible. Unity owns the
+   plate state machine and reports it in [F] — read `plate_location`
+   and `next_expected` directly instead of tracking placement yourself.
+   Three task shapes reach the assembly surface:
 
-   a) STACK TASK — "Stack <Ingredient> on Player_preparation_<N>".
-      The ingredient is already prepared and sitting somewhere (a
-      Preparation<N> table, your hand, or a station). Plan:
+   a) PLATE_SETUP TASK — "Set up the assembly plate on <table>". Plan:
+        move_to(PlateBoard) → pickup(PlateBoard) →
+        move_to(<target_parking_table>) → put_down(<target_parking_table>)
+      Exactly 4 steps. That <target_parking_table> is now the
+      assembly surface for the rest of the burger.
+
+   b) STACK TASK — "Stack <Ingredient> onto the plate at <plated_table>".
+      The ingredient is already ready somewhere. Plan:
         move_to(<source>) → pickup(<source>) →
-        move_to(Player_preparation_<N>) → put_down(Player_preparation_<N>)
-      Typically 4 steps.
+        move_to(<plated_table>) → put_down(<plated_table>)
+      Use [F]'s `plate_location` as `<plated_table>` — not `PlateBoard`,
+      not another table. The ingredient you pick must match [F]'s
+      `next_expected`; Unity rejects out-of-order layers.
 
-   b) PREP-THEN-STACK TASK — the task explicitly asks for a layer but
-      the ingredient isn't ready. Plan the full pipeline ending on the
-      Player table:
-        <Box> → Station → process → pickup → Player_preparation_<N>.
+   c) PREP-THEN-STACK TASK — [F] says the next expected layer isn't
+      ready yet. Plan the full pipeline ending on the plated table:
+        <Box> → Station → process → pickup → <plated_table>.
 
-   Placement order MUST be, bottom→top:
-       BreadSlice → CheeseSlice → OnionSlice → LettuceSlice →
-       TomatoSlice → CookedMeat → BreadSlice
-   Never stack anything but a BreadSlice on an empty Player table; never
-   skip a layer. Bread is used TWICE (bottom + top bun).
+   `PlateBoard` is the plate's SOURCE, never the assembly target.
 
 --- RESPONSE FORMAT ---
 Output a valid JSON list of actions. Each element:
@@ -110,26 +142,36 @@ Output a valid JSON list of actions. Each element:
     {{ "thought_trace": "Deliver CookedMeat — task complete.", "function": "put_down", "args": {{ "id": "Preparation1" }} }}
 ]
 
+--- EXAMPLE: PLATE_SETUP task (no assembly surface yet) ---
+Task: "Set up the assembly plate on Preparation1".
+[A] hands empty. PlateBoard shows PLATE.
+[
+    {{ "thought_trace": "Go to the plate source.", "function": "move_to", "args": {{ "id": "PlateBoard" }} }},
+    {{ "thought_trace": "Pick up the PLATE.", "function": "pickup", "args": {{ "id": "PlateBoard" }} }},
+    {{ "thought_trace": "Carry it to the chosen parking table.", "function": "move_to", "args": {{ "id": "Preparation1" }} }},
+    {{ "thought_trace": "Put the PLATE down — Preparation1 is now the assembly surface.", "function": "put_down", "args": {{ "id": "Preparation1" }} }}
+]
+
 --- EXAMPLE: STACK task (ingredient already ready) ---
-Task: "Stack BreadSlice as bottom bun on Player_preparation_1".
-[C] shows BREADSLICE @ Preparation2. [A] hands empty.
+Task: "Stack BreadSlice onto the plate at Preparation1".
+[C] shows ASSEMBLY SURFACE @ Preparation1 and BREADSLICE @ Preparation2. [A] hands empty.
 [
     {{ "thought_trace": "Go to where the BreadSlice is parked.", "function": "move_to", "args": {{ "id": "Preparation2" }} }},
     {{ "thought_trace": "Pick up the BreadSlice.", "function": "pickup", "args": {{ "id": "Preparation2" }} }},
-    {{ "thought_trace": "Move to the chosen assembly table.", "function": "move_to", "args": {{ "id": "Player_preparation_1" }} }},
-    {{ "thought_trace": "Place BreadSlice as the bottom bun.", "function": "put_down", "args": {{ "id": "Player_preparation_1" }} }}
+    {{ "thought_trace": "Carry it to the plated table.", "function": "move_to", "args": {{ "id": "Preparation1" }} }},
+    {{ "thought_trace": "Place BreadSlice as the first layer on the plate.", "function": "put_down", "args": {{ "id": "Preparation1" }} }}
 ]
 
 --- EXAMPLE: PREP-THEN-STACK task (ingredient not yet ready) ---
-Task: "Prepare and stack a CheeseSlice on Player_preparation_1".
-[C] shows BREADSLICE on Player_preparation_1 but no CHEESESLICE. [A] hands empty.
+Task: "Prepare and stack a CookedMeat onto the plate at Preparation1".
+Preparation1 is the assembly surface and already has BreadSlice placed. [C] shows no COOKEDMEAT. [A] hands empty.
 [
-    {{ "thought_trace": "Fetch raw cheese.", "function": "move_to", "args": {{ "id": "CheeseBox" }} }},
-    {{ "thought_trace": "Pick up raw cheese.", "function": "pickup", "args": {{ "id": "CheeseBox" }} }},
-    {{ "thought_trace": "Carry to the cutting station.", "function": "move_to", "args": {{ "id": "CutBoard" }} }},
-    {{ "thought_trace": "Place it to prepare slicing.", "function": "put_down", "args": {{ "id": "CutBoard" }} }},
-    {{ "thought_trace": "Chop immediately.", "function": "chop", "args": {{ "id": "CutBoard" }} }},
-    {{ "thought_trace": "Pick up the CheeseSlice.", "function": "pickup", "args": {{ "id": "CutBoard" }} }},
-    {{ "thought_trace": "Move to the assembly table.", "function": "move_to", "args": {{ "id": "Player_preparation_1" }} }},
-    {{ "thought_trace": "Stack CheeseSlice as layer 2 — task complete.", "function": "put_down", "args": {{ "id": "Player_preparation_1" }} }}
+    {{ "thought_trace": "Fetch raw meat.", "function": "move_to", "args": {{ "id": "MeatBox" }} }},
+    {{ "thought_trace": "Pick up raw meat.", "function": "pickup", "args": {{ "id": "MeatBox" }} }},
+    {{ "thought_trace": "Carry to the oven.", "function": "move_to", "args": {{ "id": "Oven" }} }},
+    {{ "thought_trace": "Place it to cook.", "function": "put_down", "args": {{ "id": "Oven" }} }},
+    {{ "thought_trace": "Start the cook cycle.", "function": "cook", "args": {{ "id": "Oven" }} }},
+    {{ "thought_trace": "Pick up the CookedMeat.", "function": "pickup", "args": {{ "id": "Oven" }} }},
+    {{ "thought_trace": "Carry to the plated table.", "function": "move_to", "args": {{ "id": "Preparation1" }} }},
+    {{ "thought_trace": "Stack CookedMeat as the next layer — task complete.", "function": "put_down", "args": {{ "id": "Preparation1" }} }}
 ]

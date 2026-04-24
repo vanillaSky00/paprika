@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using Newtonsoft.Json;
 using NativeWebSocket;
@@ -42,6 +43,32 @@ public class AgentNetworkManager : MonoBehaviour
         { "SLICEDBREAD", "SLICED_BREAD" }
         // 如果有其他需要翻譯的，直接加在這邊
     };
+
+    // Canonical names the backend prompts and LLM speak in — the Unity
+    // enum uses shortened, mixed-case tags; this table normalises them so
+    // sensory data and LLM task strings line up without Python-side fixups.
+    private static readonly Dictionary<ItemType, string> canonicalItemName = new Dictionary<ItemType, string>
+    {
+        { ItemType.SLICEDBREAD, "BreadSlice" },
+        { ItemType.SLICEDTOM,   "TomatoSlice" },
+        { ItemType.SLICEDLET,   "LettuceSlice" },
+        { ItemType.SLICEDON,    "OnionSlice" },
+        { ItemType.SLICEDCHE,   "CheeseSlice" },
+        { ItemType.COOKEDMEAT,  "CookedMeat" },
+        { ItemType.PLATE,       "PLATE" },
+        { ItemType.HAMBURGER,   "HAMBURGER" },
+        { ItemType.MEATBALL,    "MEATBALL" },
+        { ItemType.TOMATO,      "TOMATO" },
+        { ItemType.LETTUCE,     "LETTUCE" },
+        { ItemType.ONION,       "ONION" },
+        { ItemType.CHEESE,      "CHEESE" },
+        { ItemType.BREAD,       "BREAD" },
+    };
+
+    private static string CanonicalName(ItemType t)
+    {
+        return canonicalItemName.TryGetValue(t, out string name) ? name : t.ToString();
+    }
     void Start()
     {
         // 遊戲開始，直接進入連線流程
@@ -192,6 +219,7 @@ public class AgentNetworkManager : MonoBehaviour
         // B. Sensory
         payload.sensory = BuildSensoryData();
         payload.statistics = BuildStatisticsData();
+        payload.assembly = BuildAssemblyData();
         // C. Execution Trace (只傳最近 5 筆)
         if (traceHistory.Count > 5)
             payload.execution_trace = traceHistory.GetRange(traceHistory.Count - 5, 5);
@@ -383,6 +411,43 @@ public class AgentNetworkManager : MonoBehaviour
                 //state["cooking_progress"] = 0; // 這裡可以接 oven.progress
             }
         }
+        // TableBox / Table (支援 Assembly 進度回傳)
+        else if (obj.TryGetComponent<TableBox>(out TableBox tableBox))
+        {
+            ItemType item = tableBox.PeekItem();
+            bool hasItem = (item != ItemType.NONE);
+
+            state["is_occupied"] = hasItem;
+            state["is_empty"] = !hasItem;
+            state["type"] = "Counter";
+            state["held_item"] = hasItem ? CanonicalName(item) : null;
+            state["assembly_progress"] = tableBox.GetAssemblyProgress();
+            state["ready_to_serve"] = tableBox.IsAssemblyDone;
+            FillAssemblyState(
+                state,
+                tableBox.IsAssemblySurface,
+                tableBox.AssemblyStack,
+                tableBox.NextExpectedAssemblyType,
+                tableBox.IsAssemblyDone);
+        }
+        else if (obj.TryGetComponent<Table>(out Table table))
+        {
+            ItemType item = table.PeekItem();
+            bool hasItem = (item != ItemType.NONE);
+
+            state["is_occupied"] = hasItem;
+            state["is_empty"] = !hasItem;
+            state["type"] = "Counter";
+            state["held_item"] = hasItem ? CanonicalName(item) : null;
+            state["assembly_progress"] = table.GetAssemblyProgress();
+            state["ready_to_serve"] = table.IsAssemblyDone;
+            FillAssemblyState(
+                state,
+                table.IsAssemblySurface,
+                table.AssemblyStack,
+                table.NextExpectedAssemblyType,
+                table.IsAssemblyDone);
+        }
         // MeatBox / OnionBox
         else if (obj.TryGetComponent<ItemBox>(out ItemBox itemBox))
         {
@@ -415,12 +480,66 @@ public class AgentNetworkManager : MonoBehaviour
                 state["occupied_by"] = null;
         }
         // Plate
-        else if (obj.name.Contains("Plate"))
+        else if (obj.TryGetComponent<Plate>(out Plate plateComp))
         {
-            state["ready_to_serve"] = false;
+            state["ready_to_serve"] = plateComp.isDone;
+            state["assembly_progress"] = plateComp.Progress;
+            state["held_item"] = plateComp.isDone ? "HAMBURGER" : null;
         }
 
         return state;
+    }
+
+    // Writes assembly-surface fields into an object's detailed state dict.
+    // Kept inline (vs. a struct) because the state dict is already the
+    // wire representation and an extra shape would just be transient.
+    private static void FillAssemblyState(
+        Dictionary<string, object> state,
+        bool isSurface,
+        List<ItemType> stack,
+        ItemType nextExpected,
+        bool isDone)
+    {
+        state["is_assembly_surface"] = isSurface;
+        if (!isSurface)
+        {
+            state["assembly_stack"] = new List<string>();
+            state["assembly_next_expected"] = null;
+            state["assembly_is_done"] = false;
+            return;
+        }
+        state["assembly_stack"] = stack.Select(CanonicalName).ToList();
+        state["assembly_next_expected"] = (nextExpected == ItemType.NONE) ? null : (object)CanonicalName(nextExpected);
+        state["assembly_is_done"] = isDone;
+    }
+
+    // Top-level assembly summary — scans ALL tables in the scene so the
+    // backend knows where the plate is even when the agent has wandered
+    // out of its vision radius. Without this, the LLM sees "No plate set
+    // up" every time it turns its back on the plated table.
+    private AssemblyPayload BuildAssemblyData()
+    {
+        AssemblyPayload data = new AssemblyPayload
+        {
+            plate_location = null,
+            stack = new List<string>(),
+            next_expected = null,
+            is_done = false,
+        };
+
+        Table[] allTables = FindObjectsOfType<Table>();
+        foreach (var t in allTables)
+        {
+            if (!t.IsAssemblySurface) continue;
+            data.plate_location = t.name;
+            data.stack = t.AssemblyStack.Select(CanonicalName).ToList();
+            data.next_expected = (t.NextExpectedAssemblyType == ItemType.NONE)
+                ? null
+                : CanonicalName(t.NextExpectedAssemblyType);
+            data.is_done = t.IsAssemblyDone;
+            break;
+        }
+        return data;
     }
 
     // ------------------------------------------------------------------------
@@ -811,7 +930,17 @@ public class AgentPayload
     public SelfData self;
     public SensoryData sensory;
     public StatisticsData statistics;
+    public AssemblyPayload assembly;
     public List<ExecutionTraceItem> execution_trace;
+}
+
+[Serializable]
+public class AssemblyPayload
+{
+    public string plate_location;   // null if no plate has been parked yet
+    public List<string> stack;      // canonical ingredient names already placed
+    public string next_expected;    // canonical ingredient name or null
+    public bool is_done;
 }
 [Serializable]
 public class StatisticsData

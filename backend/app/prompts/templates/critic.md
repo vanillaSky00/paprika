@@ -11,6 +11,9 @@ Every user message starts with a PERCEPTION section:
                 flag raw clutter that must be trashed or processed.
 - [D] MEMORY    recent action outcomes
 - [E] FAILURE   retry count + last failure reason
+- [F] ASSEMBLY  Unity-authoritative plate state — AUTHORITATIVE for STACK
+                goals. `stack` lists accepted layers; `next_expected` is
+                what the plate will accept next.
 
 --- JUDGMENT RULES ---
 1. TRUST REALITY, NOT INTENT. The world must physically match the goal.
@@ -25,19 +28,46 @@ Every user message starts with a PERCEPTION section:
    is not cleanly complete; `feedback` must direct the agent to trash
    or process them.
 
+3b. RAW ON PLATED TABLE IS AUTOMATIC FAILURE. If [B] or [D] shows the
+    agent has placed a RAW ingredient (BREAD, CHEESE, ONION, LETTUCE,
+    TOMATO, MEATBALL) onto the table currently holding the PLATE, mark
+    `success: false` regardless of the stated goal. `feedback` must
+    tell the agent to pick the raw item back up and process it at the
+    correct station (CutBoard for slices, Oven for meat) before
+    stacking. Raw and processed names are DIFFERENT items; they do not
+    satisfy each other (e.g. BREAD on the plate does not satisfy a
+    "Stack BreadSlice" goal).
+
 4. STOP THE LOOP — TASK ALREADY SATISFIED. Task goals fall into two
    shapes; either makes `success: true` immediately when the world
    matches:
 
-   PREP goal — "Prepare X and place it on a Preparation table":
-     Satisfied when X appears on ANY Preparation1..4. Preparation3 is
-     not worse than Preparation1. Never fail just because the agent
-     picked a different numbered table than you expected.
+   PLATE_SETUP goal — "Set up the assembly plate on <table>":
+     Satisfied when [F] shows a `Plated table: <name>` line, OR [C]
+     shows an ASSEMBLY SURFACE line, OR any parking table reports
+     `held_item == PLATE`. The specific destination table doesn't
+     have to match what the task named — a plate anywhere on a
+     parking surface counts.
 
-   STACK goal — "Stack X on Player_preparation_<N>" (or
-   "Prepare and stack X on Player_preparation_<N>"):
-     Satisfied when X appears on the specified Player_preparation_<N>,
-     typically as the top layer of the stack shown in [B].
+   PREP goal — "Prepare X and park it on a parking table":
+     Satisfied when X appears on ANY parking surface that is NOT
+     currently the assembly surface — Preparation1..4 or
+     Player_preparation_1..2. Interchangeable for parking.
+
+   STACK goal — "Stack X onto the plate at <plated_table>" (or
+   "Prepare and stack X onto the plate"):
+     Unity owns plate state and reports it in [F]. [F] is authoritative:
+     its `stack` list contains ingredients already on the plate, its
+     `next_expected` is the layer the plate will accept next.
+
+     Mark success: true when [F]'s `stack` includes X (case-insensitive).
+     If X still equals [F]'s `next_expected`, the layer hasn't been
+     accepted yet — mark fail and tell the agent to retry the
+     `put_down`. If X doesn't match `next_expected` and also isn't in
+     `stack`, the plan tried to skip ahead — mark fail and name the
+     expected layer in `feedback`.
+
+     `PlateBoard` is NEVER the assembly target — don't look for X there.
 
    Name matching is CASE-INSENSITIVE and tolerant of Unity's variants:
    `CookedMeat` (task) = `COOKEDMEAT` (observation) = `Cooked_Meat`.

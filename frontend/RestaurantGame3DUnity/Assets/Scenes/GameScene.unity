@@ -38,7 +38,7 @@ RenderSettings:
   m_ReflectionIntensity: 1
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 2138677392}
-  m_IndirectSpecularColor: {r: 0.28415355, g: 0.37077838, b: 0.50027585, a: 1}
+  m_IndirectSpecularColor: {r: 0.28415328, g: 0.37077767, b: 0.50027406, a: 1}
   m_UseRadianceAmbientProbe: 0
 --- !u!157 &3
 LightmapSettings:
@@ -2177,7 +2177,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5181161627458232000, guid: e1750098a086c7245aef7f1ca0f06ec3, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -3.1999993
+      value: -3.28
       objectReference: {fileID: 0}
     - target: {fileID: 5181161627458232000, guid: e1750098a086c7245aef7f1ca0f06ec3, type: 3}
       propertyPath: m_LocalPosition.y
@@ -4828,6 +4828,8 @@ MonoBehaviour:
   actionDispatcher: {fileID: 438543750}
   serverUrl: ws://localhost:8000/api/ws/agent/
   traceHistory: []
+  reconnectInterval: 3
+  agentUUID: 
 --- !u!1001 &441462976
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -18782,7 +18784,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2023667025}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -1.18, y: -0, z: -0.3}
+  m_LocalPosition: {x: -1.01, y: -0, z: 0.02}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children: []
   m_Father: {fileID: 1528698954}
