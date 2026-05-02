@@ -13,7 +13,7 @@ from app.api.schemas import (
     Sensory,
     TraceStep 
 )
-from app.config import settings
+from app.core.config import settings
 
 def pytest_configure(config):
     config.addinivalue_line("markers", "paid: tests that call paid APIs")
@@ -99,7 +99,7 @@ def dummy_perception(dummy_world_objects):
             TraceStep(
                 step_index=1,
                 function="move_to",
-                id="Stove_01",          # was target_id
+                target_id="Stove_01",
                 status="failed",
                 message="Too far from Stove_01",
             )

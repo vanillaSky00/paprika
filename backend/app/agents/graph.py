@@ -8,10 +8,10 @@ from app.agents.skill import SkillAgent
 from app.agents.action import ActionAgent
 from app.agents.critic import CriticAgent
 from app.memory.pgvector_repo import PostgresMemoryStore
-from app.deps import get_llm, get_session_factory
+from app.core.deps import get_llm, get_session_factory
 from app.tools.base import tool_registry
 from app.tools.context import ToolContext
-from app.config import settings 
+from app.core.config import settings 
 from app.api.schemas import Perception, AgentAction, CriticOutput
 
 logger = logging.getLogger(__name__)
@@ -51,23 +51,24 @@ critic_agent = CriticAgent(
 
 class AgentState(TypedDict):
     perception: Perception
-    
+    context: str
+
     task: str
     skill_guide: str
     plan: list[AgentAction]
     critique: CriticOutput | None
-    
+
     retry_count: int
-    
-    
+
+
 async def curriculum_node(state: AgentState):
     logger.info("--- 🧠 CURRICULUM: Thinking... ---")
-    
-    proposal = await curriculum_agent.propose_next_task(state['perception'])
-    
+
+    proposal = await curriculum_agent.propose_next_task(state['context'])
+
     return {
         "task": proposal.task,
-        "skill_guide" : "",
+        "skill_guide": "",
         "retry_count": 0,
         "plan": [],
         "critique": None,
@@ -76,9 +77,9 @@ async def curriculum_node(state: AgentState):
 
 async def skill_node(state: AgentState):
     logger.info(f"--- 📚 SKILL: Researching '{state['task']}'... ---")
-    
+
     guide = await skill_agent.retrieve_skill(state['task'])
-    
+
     return {
         "skill_guide": guide
     }
@@ -86,32 +87,32 @@ async def skill_node(state: AgentState):
 
 async def action_node(state: AgentState):
     logger.info("--- 🚀 ACTION: Planning... ---")
-    
+
     last_plan = [a.model_dump() for a in state['plan']] if state['plan'] else ""
     critic_text = state['critique'].feedback if state['critique'] else ""
     skill_guide = state.get("skill_guide", "")
-    
+
     plan = await action_agent.generate_plan(
-        perception=state['perception'],
+        context=state['context'],
         current_task=state['task'],
         skill_guide=skill_guide,
         last_plan=last_plan,
-        critique=critic_text
+        critique=critic_text,
     )
-    
+
     return {
         "plan": plan
     }
-    
+
 
 async def critic_node(state: AgentState):
     logger.info("--- 🧐 CRITIC: Judging... ---")
-    
+
     critique = await critic_agent.check_task_success(
-        perception=state['perception'],
-        current_task=state['task']
+        context=state['context'],
+        current_task=state['task'],
     )
-    
+
     return {
         "critique": critique,
         "retry_count": state['retry_count'] + 1

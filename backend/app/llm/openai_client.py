@@ -2,7 +2,7 @@ from typing import Type, TypeVar
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel
 
-from app.config import Settings
+from app.core.config import Settings
 from app.llm.base import BaseLLMClient, BaseLLMBuilder, llm_registry
 
 # “T is a generic type that must be a subclass of BaseModel.”

@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.UI;
 using TMPro; // 記得引用
 
 public class AgentThoughtBubble : MonoBehaviour
@@ -14,11 +15,46 @@ public class AgentThoughtBubble : MonoBehaviour
     private Camera mainCamera;
     public float heightOffset = 0.5f;
     public Transform targetAgent;
+
+    [Header("Transparency (0 = invisible, 1 = opaque)")]
+    [Range(0f, 1f)] public float backgroundAlpha = 0.6f;
+    [Range(0f, 1f)] public float textAlpha = 0.85f;
     void Start()
     {
         mainCamera = Camera.main;
+        if (thoughtText)
+        {
+            thoughtText.enableWordWrapping = true;
+            thoughtText.overflowMode = TextOverflowModes.Ellipsis;
+        }
+        ApplyAlpha();
         // 一開始先隱藏
         if(bubbleCanvas) bubbleCanvas.enabled = false;
+    }
+
+    void OnValidate()
+    {
+        ApplyAlpha();
+    }
+
+    void ApplyAlpha()
+    {
+        if (backgroundPanel)
+        {
+            var img = backgroundPanel.GetComponent<Image>();
+            if (img)
+            {
+                var c = img.color;
+                c.a = backgroundAlpha;
+                img.color = c;
+            }
+        }
+        if (thoughtText)
+        {
+            var c = thoughtText.color;
+            c.a = textAlpha;
+            thoughtText.color = c;
+        }
     }
 
     void LateUpdate() // 使用 LateUpdate 確保在相機移動後才轉向

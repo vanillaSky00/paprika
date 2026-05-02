@@ -65,18 +65,26 @@ public class ActionPickup : MonoBehaviour, IAgentAction
         }
 
         // 4. 執行撿取 (邏輯核心)
-        
+
         // --- 情況 A: 從食材箱 (ItemBox) 拿取 ---
-        if (targetObj.TryGetComponent<ItemBox>(out ItemBox itemBox))
+        // Prefer the plain ItemBox base class when there are multiple
+        // ItemBox-derived components on the target (Table/TableBox
+        // override GetItem() to return NONE unless certain state
+        // conditions are met — picking from a container that is
+        // conceptually a "box of tomatoes" should always yield the box's
+        // stored item, not a state-guarded override).
+        ItemBox itemBox = PickIngredientBox(targetObj);
+        if (itemBox != null)
         {
             ItemType itemType = itemBox.GetItem();
+            Debug.Log($"[ActionPickup] {targetName} → {itemBox.GetType().Name} on '{itemBox.gameObject.name}' returned {itemType}");
 
             // 檢查箱子給的東西是不是 NONE
             if (itemType == ItemType.NONE)
             {
-                string msg = $"[ActionPickup] Failed: {targetName} (ItemBox) is empty or cool down!";
+                string msg = $"[ActionPickup] Failed: {targetName} ({itemBox.GetType().Name}) is empty or cool down!";
                 Debug.LogWarning(msg);
-                
+
                 // 🔥 紀錄失敗
                 if (networkManager) networkManager.RecordActionTrace(ActionName, targetName, false, msg);
 
@@ -84,12 +92,9 @@ public class ActionPickup : MonoBehaviour, IAgentAction
                 return;
             }
 
-            inventory.TakeItem(itemType);
-            
-            // 雙重檢查：確認 Inventory 真的拿到了
-            if (inventory.CurrentType == ItemType.NONE)
+            if (!inventory.TakeItem(itemType))
             {
-                string msg = "Inventory failed to take item (Hand might be full?)";
+                string msg = $"Hands full — already holding {inventory.CurrentType}. Put it down first.";
                 if (networkManager) networkManager.RecordActionTrace(ActionName, targetName, false, msg);
 
                 agentState.ReportActionFinished(false, msg);
@@ -103,9 +108,12 @@ public class ActionPickup : MonoBehaviour, IAgentAction
 
             agentState.SetHeldItem(itemType.ToString());
             agentState.ReportActionFinished(true, $"Picked up {itemType}");
+            return;
         }
+
         // --- 情況 B: 從砧板 (SliceBoard) 拿取 ---
-        else if (targetObj.TryGetComponent<SliceBoard>(out SliceBoard board))
+        SliceBoard board = targetObj.GetComponent<SliceBoard>() ?? targetObj.GetComponentInChildren<SliceBoard>();
+        if (board != null)
         {   
             if (board.CurrentType == ItemType.NONE)
             {
@@ -118,8 +126,15 @@ public class ActionPickup : MonoBehaviour, IAgentAction
             }
 
             ItemType itemOnBoard = board.CurrentType;
-            inventory.TakeItem(itemOnBoard);
-            
+            if (!inventory.TakeItem(itemOnBoard))
+            {
+                string msg = $"Hands full — already holding {inventory.CurrentType}. Put it down first.";
+                if (networkManager) networkManager.RecordActionTrace(ActionName, targetName, false, msg);
+
+                agentState.ReportActionFinished(false, msg);
+                return;
+            }
+
             board.ClearObject(); // 拿走後要清空砧板
 
             Debug.Log($"[ActionPickup] 成功從砧板拿走: {itemOnBoard}");
@@ -129,26 +144,48 @@ public class ActionPickup : MonoBehaviour, IAgentAction
 
             agentState.SetHeldItem(itemOnBoard.ToString());
             agentState.ReportActionFinished(true, $"Picked up {itemOnBoard}");
+            return;
         }
-        else
+
+        string error = $"物件 '{targetName}' 上沒有 ItemBox 或 SliceBoard 元件，無法撿取！";
+        Debug.LogError($"[ActionPickup] {error}");
+
+        // 🔥 紀錄失敗
+        if (networkManager) networkManager.RecordActionTrace(ActionName, targetName, false, error);
+
+        agentState.ReportActionFinished(false, error);
+    }
+
+    // Picks the right ItemBox on / under the target. Preference order:
+    //   1. A plain ItemBox on the target itself (ingredient crates).
+    //   2. Any other ItemBox-derived component on the target (Oven, Table).
+    //   3. The same preference walked into children.
+    // This avoids a subtle bug where `GetComponent<ItemBox>()` on a
+    // target hosting Table + plain ItemBox returns whichever was added
+    // first — Table.GetItem() returns NONE in most states, making the
+    // crate look empty even when it holds an ingredient.
+    private static ItemBox PickIngredientBox(GameObject target)
+    {
+        if (target == null) return null;
+
+        ItemBox[] onSelf = target.GetComponents<ItemBox>();
+        ItemBox plain = FirstPlainItemBox(onSelf);
+        if (plain != null) return plain;
+        if (onSelf.Length > 0) return onSelf[0];
+
+        ItemBox[] inChildren = target.GetComponentsInChildren<ItemBox>(includeInactive: false);
+        ItemBox plainChild = FirstPlainItemBox(inChildren);
+        if (plainChild != null) return plainChild;
+        return inChildren.Length > 0 ? inChildren[0] : null;
+    }
+
+    private static ItemBox FirstPlainItemBox(ItemBox[] candidates)
+    {
+        foreach (var c in candidates)
         {
-            // 嘗試找子物件 (以防腳本掛在子層級)
-            var childBox = targetObj.GetComponentInChildren<ItemBox>();
-            if(childBox != null)
-            {
-                 string msg = $"Found ItemBox on child of {targetName}, logic needs refinement.";
-                 if (networkManager) networkManager.RecordActionTrace(ActionName, targetName, false, msg);
-                 agentState.ReportActionFinished(false, msg);
-                 return;
-            }
-
-            string error = $"物件 '{targetName}' 上沒有 ItemBox 或 SliceBoard 元件，無法撿取！";
-            Debug.LogError($"[ActionPickup] {error}");
-            
-            // 🔥 紀錄失敗
-            if (networkManager) networkManager.RecordActionTrace(ActionName, targetName, false, error);
-
-            agentState.ReportActionFinished(false, error);
+            if (c != null && c.GetType() == typeof(ItemBox))
+                return c;
         }
+        return null;
     }
 }

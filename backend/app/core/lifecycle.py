@@ -5,6 +5,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from alembic.config import Config
 from alembic import command
+from app.core.config import settings
+from app.core.logger import setup_logging
 
 logger = logging.getLogger(__name__)
 
@@ -24,13 +26,9 @@ def _run_migrations():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # --- STARTUP ---
-    
-    # ✅ FIX: Run the blocking sync function in a separate thread
-    # This prevents "asyncio.run() cannot be called from a running event loop"
+    setup_logging(settings)
     await asyncio.to_thread(_run_migrations)
     
     yield
     
-    # --- SHUTDOWN ---
     logger.info("🛑 Shutting down Paprika Backend...")

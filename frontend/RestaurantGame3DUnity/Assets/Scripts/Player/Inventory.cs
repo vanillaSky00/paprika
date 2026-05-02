@@ -16,9 +16,9 @@ public class Inventory : MonoBehaviour
     {
         currentType = ItemType.NONE;
     } 
-    public void TakeItem(ItemType type)
+    public bool TakeItem(ItemType type)
     {
-        if (currentType != ItemType.NONE) return;
+        if (currentType != ItemType.NONE) return false;
         currentType = type;
         foreach(ObjectnType itemHold in itemsToHold)
         {
@@ -31,6 +31,7 @@ public class Inventory : MonoBehaviour
                 itemHold.item.SetActive(true);
             }
         }
+        return true;
     }
     public GameObject GetActiveHandObject()
     {

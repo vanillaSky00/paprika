@@ -61,6 +61,30 @@ public class Table : ItemBox, IPutItemFull
         }
         return false;
     } 
+
+    public float GetAssemblyProgress()
+    {
+        if (plate == null) return 0f;
+        return plate.Progress;
+    }
+
+    public bool HasAssemblyPlate()
+    {
+        return GetCurrentType() == ItemType.PLATE || plate != null;
+    }
+
+    // `IsAssemblySurface` is the canonical "this table is the burger plate"
+    // signal that the network layer and ActionPut use to decide whether
+    // failure of a put_down means "wrong layer" vs "table already occupied".
+    public bool IsAssemblySurface => GetCurrentType() == ItemType.PLATE && plate != null;
+
+    public ItemType NextExpectedAssemblyType =>
+        plate != null ? plate.NextExpectedType : ItemType.NONE;
+
+    public List<ItemType> AssemblyStack =>
+        plate != null ? plate.PlacedStack : new List<ItemType>();
+
+    public bool IsAssemblyDone => plate != null && plate.isDone;
     private IEnumerator PutCoolDown()
     {
         yield return new WaitForEndOfFrame();

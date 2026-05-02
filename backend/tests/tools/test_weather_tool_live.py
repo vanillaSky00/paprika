@@ -1,6 +1,6 @@
 import pytest
 
-from app.config import settings
+from app.core.config import settings
 from app.tools.context import ToolContext
 from app.tools.external.weather import WeatherToolBuilder
 

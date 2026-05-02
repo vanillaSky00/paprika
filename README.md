@@ -125,9 +125,28 @@ The architecture separates Unity (Game Logic) from Python (Decision Making). To 
 * Optional: add SOP/Skill writer rule if you want reusable skills
 
 ## 👾 Unity Setup
+### 1) Install Package Dependencies
+
+Open the Unity project, then go to **Window → Package Manager → + → Add package from git URL** and add each of the following:
+
+**Newtonsoft Json for Unity** (JSON serialization)
+```
+https://github.com/jillejr/Newtonsoft.Json-for-Unity.git#upm
+```
+**NativeWebSocket** (WebSocket client)
+```
+https://github.com/endel/NativeWebSocket.git#upm
+```
+**Universal Render Pipeline** — install via the Package Manager registry:
+- In Package Manager, switch the dropdown from **In Project** to **Unity Registry**
+- Search for **Universal RP** and install
+
+> All three must be installed before entering Play Mode or you will see compile errors.
+
 The backend references Unity GameObjects by exact string ID (passed as args.id). If the ID doesn’t match the scene object name, actions will fail.
 
-### 1) Valid Unity IDs
+### 2) Valid Unity IDs
+
 
 Containers / Stations (scene object names):
 check note in `backend/app/prompts/template/unity_setting`
@@ -144,7 +163,7 @@ check note in `backend/app/prompts/template/unity_setting`
 Keep this list updated whenever you rename/add GameObjects.
 
 
-### 2) Agent Actions (Tools)
+### 3) Agent Actions (Tools)
 
 Agents can only interact with the world through a small set of tools. Every tool uses the same argument key: id (unified on purpose to reduce LLM confusion).
 

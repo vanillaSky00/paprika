@@ -1,7 +1,7 @@
 import pytest
 from pydantic import BaseModel
 
-from app.config import settings
+from app.core.config import settings
 from app.llm.openai_client import OpenAIClient
 
 class FakeAction(BaseModel):
