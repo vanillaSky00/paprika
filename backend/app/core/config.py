@@ -1,5 +1,7 @@
 import os
-from pydantic import BaseModel
+from typing import Any
+
+from pydantic import BaseModel, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -12,7 +14,7 @@ class LoggingSettings(BaseModel):
 
 class Settings(BaseSettings):
     REDIS_URL: str ="redis://redis:6379/0"
-    
+
     LLM_PROVIDER: str = "openai"
     LLM_MODEL: str = "gpt-4.1-mini"
 
@@ -38,6 +40,19 @@ class Settings(BaseSettings):
     debug: bool = False
     log: LoggingSettings = LoggingSettings()
 
+    @field_validator("debug", mode="before")
+    @classmethod
+    def parse_debug_mode(cls, value: Any) -> Any:
+        if not isinstance(value, str):
+            return value
+
+        normalized = value.strip().lower()
+        if normalized in {"release", "prod", "production"}:
+            return False
+        if normalized in {"debug", "dev", "development"}:
+            return True
+        return value
+
     model_config = SettingsConfigDict(
         env_file=".env",
         extra="ignore",
@@ -45,7 +60,7 @@ class Settings(BaseSettings):
         env_nested_delimiter="__",
     )
 
-    
+
 settings = Settings()
 
 # Export to System Environment
@@ -55,5 +70,5 @@ if settings.LANGCHAIN_API_KEY:
     os.environ["LANGCHAIN_ENDPOINT"] = settings.LANGCHAIN_ENDPOINT
     os.environ["LANGCHAIN_API_KEY"] = settings.LANGCHAIN_API_KEY
     os.environ["LANGCHAIN_PROJECT"] = settings.LANGCHAIN_PROJECT
-    
-    
+
+

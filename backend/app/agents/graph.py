@@ -1,18 +1,19 @@
-import operator
 import logging
-from typing import TypedDict, Annotated, List
-from langgraph.graph import StateGraph, END
+import operator
+from typing import Annotated, List, TypedDict
 
-from app.agents.curriculum import CurriculumAgent
-from app.agents.skill import SkillAgent
+from langgraph.graph import END, StateGraph
+
 from app.agents.action import ActionAgent
 from app.agents.critic import CriticAgent
-from app.memory.pgvector_repo import PostgresMemoryStore
-from app.core.deps import get_llm, get_session_factory
+from app.agents.curriculum import CurriculumAgent
+from app.agents.skill import SkillAgent
+from app.api.schemas import AgentAction, CriticOutput, Perception
+from app.core.config import settings
+from app.core.db import get_session_factory
+from app.core.deps import get_llm, get_memory_store
 from app.tools.base import tool_registry
 from app.tools.context import ToolContext
-from app.core.config import settings 
-from app.api.schemas import Perception, AgentAction, CriticOutput
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +21,7 @@ openai_llm = get_llm("openai", "gpt-4.1-mini")
 # ollama_llm = get_llm("ollama", "gemma3:4b")
 
 session_factory = get_session_factory()
-memory_store = PostgresMemoryStore(session_factory)
+memory_store = get_memory_store()
 
 tool_context = ToolContext(
     settings=settings,
@@ -120,9 +121,9 @@ async def critic_node(state: AgentState):
 
 async def failure_node(state: AgentState):
     logger.warning(f"--- 💀 FAILURE: Giving up on '{state['task']}' ---")
-    
+
     curriculum_agent.add_history(state['task'], "Failed")
-    
+
     # Reset state for the next fresh attempt
     return {
         "plan": [],
@@ -132,29 +133,29 @@ async def failure_node(state: AgentState):
 
 async def learning_node(state: AgentState):
     logger.info("--- 🎓 LEARNING: Saving to Long-Term Memory... ---")
-    
+
     action_history_dicts = [a.model_dump() for a in state['plan']]
-    
+
     await skill_agent.learn_new_skill(
         task=state['task'],
         action_history=action_history_dicts,
         success=True,
     )
-    
+
     curriculum_agent.add_history(state['task'], "Success")
-    
+
     return {}
 
 def entry_router(state: AgentState):
     """
     Decide where to start based on if this is "first run" or not from unity?
     """
-    
+
     current_task = state.get("task", "")
-    
+
     if not current_task or current_task == "Decide Next Task":
         return "curriculum"
-    
+
     return "critic"
 
 def decide_next_node(state: AgentState):
@@ -162,14 +163,14 @@ def decide_next_node(state: AgentState):
     Why: This ensure the deterministic based on given state
     """
     critique = state['critique']
-    
+
     if critique.success:
         return "learning"
-    
+
     elif state['retry_count'] <= 2:
         logger.warning(f"⚠️ Failed. Retrying ({state['retry_count']}/2)...")
         return "action"
-    
+
     else:
         logger.error("❌ Too many failures. Giving up.")
         return "failure"

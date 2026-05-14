@@ -1,9 +1,3 @@
-"""Domain-specific exceptions for the Paprika backend.
-
-Keep this hierarchy small. Each subclass marks a distinct failure boundary
-that callers handle differently (e.g. client-visible message vs. retry vs.
-fatal). Don't add a subclass unless you actually branch on it.
-"""
 from __future__ import annotations
 
 
@@ -21,3 +15,19 @@ class ContextBuildError(PaprikaError):
 
 class AgentExecutionError(PaprikaError):
     """LangGraph agent invocation raised an error."""
+
+
+class DatabaseError(PaprikaError):
+    """Base class for database-layer failures."""
+
+
+class DatabaseUnavailableError(DatabaseError):
+    """Database did not respond to a connectivity probe."""
+
+
+class PgvectorExtensionError(DatabaseError):
+    """Failed to ensure the pgvector extension is installed."""
+
+
+class MigrationError(DatabaseError):
+    """Alembic schema upgrade failed."""

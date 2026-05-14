@@ -1,12 +1,14 @@
 from typing import List
 
 from sqlalchemy import select
-from sqlalchemy.sql import func
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql import func
+
 from app.api.schemas import CreateMemoryDTO, MemoryDTO, SkillDTO
+from app.core.db.repository import Repository
 from app.memory.base import BaseMemoryStore
 from app.memory.models import Memory, Skill
-from app.memory.vector_store import embed_text
+from app.llm.embeddings import embed_text
 
 
 class PostgresMemoryStore(BaseMemoryStore):
@@ -28,7 +30,7 @@ class PostgresMemoryStore(BaseMemoryStore):
                 importance=memory.importance,
                 embedding=emb,
             )
-            db.add(db_mem)
+            await Repository(db, Memory).add(db_mem)
 
             await db.commit()
 
@@ -57,7 +59,7 @@ class PostgresMemoryStore(BaseMemoryStore):
             rows = result.scalars().all()
 
             return [MemoryDTO.model_validate(row) for row in rows]
-        
+
     async def fetch_similar_skills(self, *, query: str, limit: int = 3) -> List[SkillDTO]:
         async with self._session_factory() as db:
             q_emb = embed_text(query)
@@ -68,7 +70,7 @@ class PostgresMemoryStore(BaseMemoryStore):
             )
             result = await db.execute(stmt)
             rows = result.scalars().all()
-            
+
             return [SkillDTO.model_validate(row) for row in rows]
 
     async def save_skill(self, skill: SkillDTO) -> None:
@@ -78,14 +80,14 @@ class PostgresMemoryStore(BaseMemoryStore):
         async with self._session_factory() as db:
             stmt = select(Skill).where(Skill.task_name == skill.task_name)
             existing = (await db.execute(stmt)).scalar_one_or_none()
-            
+
             emb = embed_text(f"{skill.task_name}: {skill.description}")
 
             if existing:
                 existing.steps_text = skill.steps_text
                 existing.embedding = emb
                 existing.updated_at = func.now()
-                
+
             else:
                 new_skill = Skill(
                     task_name = skill.task_name,
@@ -93,6 +95,6 @@ class PostgresMemoryStore(BaseMemoryStore):
                     steps_text = skill.steps_text,
                     embedding = emb
                 )
-                db.add(new_skill)
+                await Repository(db, Skill).add(new_skill)
 
             await db.commit()

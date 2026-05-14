@@ -22,27 +22,13 @@ from typing import Iterable, Optional
 from app.api.schemas import Perception
 
 
-# =============================================================================
-#  KitchenRegistry  --  Python-owned domain knowledge
-# =============================================================================
-#
-#  Hard-coded registry rather than relying on string heuristics, because Unity
-#  naming is inconsistent:
-#    - Containers emit uppercase raw names:      MEATBALL, TOMATO, ONION
-#    - Stations emit mixed-case processed names: CookedMeat, TomatoSlice
-#    - Preparation tables come as:               Preparation1..4  (shared)
-#                                                Player_preparation_1..2 (personal)
-#
-#  Centralising this here means agents and renderers never re-derive it.
-# =============================================================================
-
-
+#  Why we need KitchenRegistry for Python-owned domain knowledge?
+#  Because Unity naming is inconsistent, we use hardcoded actions to make it stable.                                             
 RAW_INGREDIENTS: frozenset[str] = frozenset({
     "MEATBALL", "TOMATO", "ONION", "LETTUCE", "CHEESE", "BREAD",
 })
 PROCESSED_INGREDIENTS: frozenset[str] = frozenset({
-    "CookedMeat",
-    "TomatoSlice", "OnionSlice", "LettuceSlice", "CheeseSlice", "BreadSlice",
+    "CookedMeat", "TomatoSlice", "OnionSlice", "LettuceSlice", "CheeseSlice", "BreadSlice",
 })
 PROCESSING_RULES: dict[str, tuple[str, str]] = {
     "MEATBALL": ("Oven",     "cook"),
@@ -57,10 +43,6 @@ CONTAINER_BOXES: frozenset[str] = frozenset({
 })
 STATIONS: frozenset[str] = frozenset({"Oven", "CutBoard", "PlateBoard", "Trash"})
 
-# Canonical preparation-table IDs. Naming differs between the two types
-# and the LLM tends to "normalise" them into a single pattern — e.g.
-# emitting `Preparation_1` (wrong) because it matches the player form.
-# Keep these as ordered tuples so they render predictably in the prompt.
 SHARED_PREP_TABLES: tuple[str, ...] = (
     "Preparation1", "Preparation2", "Preparation3", "Preparation4",
 )
@@ -68,22 +50,20 @@ PLAYER_PREP_TABLES: tuple[str, ...] = (
     "Player_preparation_1", "Player_preparation_2",
 )
 
-# Where the PLATE starts each game. It is NOT the assembly surface —
-# the agent picks the plate up here, carries it to a parking table,
-# puts it down, and that table becomes the assembly surface.
+# The PLATE starts each game. 
+# It is NOT the assembly surface the assembly surface is where the plate got puts down
 PLATE_SOURCE: str = "PlateBoard"
 
-# Hamburger assembly order — PLACEMENT order onto the plate.
+# Hamburger assembly order
 HAMBURGER_STACK: tuple[str, ...] = (
-    "BreadSlice",    # 1st placement — top bun of finished burger
+    "BreadSlice",    # top
     "CookedMeat",
     "TomatoSlice",
     "LettuceSlice",
     "OnionSlice",
     "CheeseSlice",
-    "BreadSlice",    # 7th placement — bottom bun of finished burger
+    "BreadSlice",    # bottom
 )
-
 
 def is_plate(item_name: str | None) -> bool:
     """True if the named item refers to a PLATE (case-insensitive)."""
@@ -93,11 +73,10 @@ def is_plate(item_name: str | None) -> bool:
 
 
 def is_processed(item_name: str | None) -> bool:
-    """Return True if the given item name refers to a processed ingredient.
-
-    Unity is inconsistent: the same item shows up as `CookedMeat` in some
-    fields, `COOKEDMEAT` in `state.held_item`, and `SLICED_BREAD` or
-    `SLICEDBREAD` in `statistics.table_items`. We accept all of these.
+    """
+    True if the given item name refers to a processed ingredient.
+    We accept `CookedMeat`, `COOKEDMEAT` in `state.held_item`, 
+    and `SLICED_BREAD` or `SLICEDBREAD` in `statistics.table_items`. 
     """
     if not item_name:
         return False
@@ -107,39 +86,42 @@ def is_processed(item_name: str | None) -> bool:
     return any(marker in upper for marker in ("COOKED", "SLICE", "GRATED"))
 
 
-def is_raw(item_name: Optional[str]) -> bool:
-    """Return True if the given item name refers to a raw ingredient."""
+def is_raw(item_name: str | None) -> bool:
+    """
+    Return True if the given item name refers to a raw ingredient.
+    """
     if not item_name:
         return False
     return item_name in RAW_INGREDIENTS
 
 
 def is_shared_prep_table(object_id: str) -> bool:
-    """`Preparation1`..`Preparation4` are the shared assembly tables."""
+    """
+    `Preparation1`..`Preparation4` are the shared assembly tables.
+    """
     return object_id.startswith("Preparation") and not object_id.startswith("Player_")
 
 
 def is_player_prep_table(object_id: str) -> bool:
-    """`Player_preparation_1`..`Player_preparation_2` are personal hand-off zones."""
+    """
+    `Player_preparation_1`..`Player_preparation_2` are personal hand-off zones.
+    """
     return object_id.startswith("Player_preparation")
 
 
-def processing_target_for(ingredient: str) -> Optional[tuple[str, str]]:
+def processing_target_for(ingredient: str) -> tuple[str, str] | None:
     """Return (station_id, action_verb) for a raw ingredient, or None."""
     return PROCESSING_RULES.get(ingredient)
 
 
-# =============================================================================
-#  HeldItem  --  canonical inventory representation
-# =============================================================================
+
 
 @dataclass(frozen=True)
 class HeldItem:
-    """Typed representation of what the agent is currently holding.
-
-    Why a dataclass? The Unity schema for `self.held_item` has wobbled between
-    a string, a nested object, and null. Agents should never touch that raw
-    field; they consume this stable shape instead.
+    """
+    Typed representation of what the agent is currently holding.
+    Why a dataclass? Agents should never touch that raw json field. 
+    They consume this stable shape instead.
     """
     name: str
     is_raw: bool
@@ -155,9 +137,10 @@ class HeldItem:
 
     @classmethod
     def from_raw(cls, raw) -> "HeldItem":
-        """Build from whatever self.held_item turns out to be.
+        """
+        Build from whatever self.held_item turns out to be.
 
-        Accepted shapes:
+        Also a callback, accepted shapes:
           - None / missing
           - "MEATBALL" (bare string)
           - {"id": "...", "name": "MEATBALL", "tags": [...]}
@@ -184,17 +167,14 @@ class HeldItem:
 
 class ObservationAdapter:
     """
-    Why: The schema of Perception raw data often varies. ObservationAdapter
-    decouples the system from the evolving Unity schema.
-
+    Why: The schema of Perception raw json often varies. ObservationAdapter
+    decouples the system, avoiding multiple files changes due to evolving of Unity schema.
     This class is kept intentionally thin. All *formatting* for LLM consumption
     lives in PerceptionRenderer below.
     """
 
     def __init__(self, perception: Perception):
         self._p = perception
-
-    # ---- primitive accessors --------------------------------------------
 
     @property
     def location(self) -> str:
@@ -221,8 +201,7 @@ class ObservationAdapter:
     def visible(self) -> list:
         return list(self._p.sensory.visible_objects)
 
-    # ---- legacy summary strings (unchanged contracts) -------------------
-
+    # legacy summary strings
     @property
     def visual_summary(self) -> str:
         reachables = self.reachable
@@ -258,23 +237,20 @@ class ObservationAdapter:
         )
 
 
-# =============================================================================
-#  PerceptionRenderer  --  affordance-driven context builder
-# =============================================================================
-#
-#  This is the "context engineering" layer. Each render_* method produces ONE
-#  component of the five-part perception block. The master function
-#  build_perception_context() assembles them all.
-#
-#  Downstream, the SAME block is fed to Curriculum, Actor, AND Critic so they
-#  cannot disagree about kitchen state. skill.md (Scribe) bypasses this and
-#  gets the raw trace separately.
-# =============================================================================
+
+
 
 # Object ids that should never be treated as inventory/supply (plates, trash)
 INFRASTRUCTURE_IDS: frozenset[str] = frozenset({"Trash", "PlateBoard"})
 
-
+#  The context engineering according to affordance-driven methology
+#
+#  Each render_* method produces ONE component of the five-part perception block. 
+#  The master function build_perception_context() assembles them all.
+#
+#  Downstream, the SAME block is fed to Curriculum, Actor, AND Critic so they
+#  cannot disagree about kitchen state. skill.md (Scribe) bypasses this and
+#  gets the raw trace separately.
 class PerceptionRenderer:
     """Converts a Perception snapshot into the 5-component affordance block."""
 
@@ -533,10 +509,12 @@ class PerceptionRenderer:
     # ---- [C] KITCHEN STATE (supply check, raw vs processed) -------------
 
     def render_supply_check(self) -> str:
-        """Primary source: live held_item on each prep table we can see.
+        """
+        Primary source: live held_item on each prep table we can see.
         Fallback: Unity's `statistics.table_items` aggregate when no prep
         table is in sight. Unity does not reliably populate the aggregate
-        every frame, so we cannot trust "empty stats = empty tables"."""
+        every frame, so we cannot trust "empty stats = empty tables".
+        """
 
         seen: list[tuple[str, str]] = []  # (table_id, item_name)
         for obj in self.obs.reachable + self.obs.visible:
@@ -827,16 +805,15 @@ class PerceptionRenderer:
         )
 
 
-# =============================================================================
-#  Module-level convenience
-# =============================================================================
 
 def build_perception_context(
     perception: Perception,
     retry_count: int = 0,
     current_task: str = "",
 ) -> str:
-    """Shortcut used by LangGraph nodes / the FastAPI route."""
+    """
+    Endpoint used when need context
+    """
     return PerceptionRenderer(perception).build_perception_context(
         retry_count=retry_count,
         current_task=current_task,
