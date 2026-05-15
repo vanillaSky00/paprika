@@ -25,7 +25,7 @@ As the industry shifts from chat interfaces to **reliable skill execution**, Pap
 
 ### 1) Configure environment
 
-Create `.env` according to `.env_example` in the `/backend` 
+Create `.env` according to `.env_example` in the `backend/` 
 
 ### 2) Start services
 Start backend first
