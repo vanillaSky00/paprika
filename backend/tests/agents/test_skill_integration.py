@@ -85,9 +85,10 @@ async def test_skill_learning_logic(mock_dependencies):
     # Run Learn
     # Note: We pass success=True so it actually triggers
     await agent.learn_new_skill(
-        task=task_name, 
-        action_history=raw_history, 
-        success=True
+        task=task_name,
+        action_history=raw_history,
+        success=True,
+        actor_id=1,
     )
 
     # Assertions
@@ -130,9 +131,10 @@ async def test_skill_integration_live():
     await agent.learn_new_skill(
         task=task_name,
         action_history=raw_history,
-        success=True
+        success=True,
+        actor_id=1,
     )
-    
+
     assert mock_memory.save_skill.called
     saved_skill = mock_memory.save_skill.call_args.args[0]
     

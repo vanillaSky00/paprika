@@ -32,18 +32,18 @@ def get_engine() -> AsyncEngine:
     """Return the application-wide async SQLAlchemy engine."""
     return _engine
 
-
+#TODO: Who needs?
 def get_session_factory() -> async_sessionmaker[AsyncSession]:
     """Return the application-wide async session factory."""
     return _session_factory
 
-
+#TODO: Who needs?
 async def get_db_session() -> AsyncIterator[AsyncSession]:
     """FastAPI dependency that yields one async DB session."""
     async with _session_factory() as session:
         yield session
 
-
+#TODO: Who needs?
 @asynccontextmanager
 async def session_scope() -> AsyncIterator[AsyncSession]:
     """Yield a session and rollback on errors.

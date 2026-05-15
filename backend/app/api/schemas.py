@@ -4,13 +4,11 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field
 
-# --- ENUMS ------------------------------------------------
 class GameMode(str, Enum):
     REALITY = "reality"
     DREAM = "dream"
 
-
-# --- PERCEPTION (INPUT FROM UNITY) ------------------------
+# PERCEPTION (INPUT FROM UNITY)
 class TraceStep(BaseModel):
     step_index: int
     function: str
@@ -32,21 +30,20 @@ class ObjectView(BaseModel):
         flags = []
         
         for k, v in self.state.items():
-            # 🛑 1. Skip keys you never want to show (Noise reduction)
+            # Noise reduction
             if k in ['is_empty', 'id', 'type', 'distance']: 
                 continue
                 
-            # ✅ 2. Handle Booleans (e.g., is_on: true -> "is_on")
+            # Handle Booleans (e.g., is_on: true -> "is_on")
             if isinstance(v, bool):
                 if v is True:
                     flags.append(k)
             
-            # ✅ 3. Handle Strings & Numbers (e.g., held_item: "Meat" -> "held_item:Meat")
-            # This is the part you were missing!
+            # Handle Strings & Numbers (e.g., held_item: "Meat" -> "held_item:Meat")
             elif isinstance(v, (str, int, float)) and v:
                 flags.append(f"{k}:{v}")
 
-        # 4. Legacy "contains_items" fallback (optional, keeps your old logic working)
+        # Legacy "contains_items" fallback (optional, keeps your old logic working)
         # If we didn't find a specific item string, but it's not empty, say generic "contains_items"
         has_explicit_item = any(isinstance(v, str) for v in self.state.values())
         if self.state.get("is_empty") is False and not has_explicit_item:
@@ -69,7 +66,8 @@ class Statistics(BaseModel):
     table_items: list[str] = Field(default_factory=list)
 
 class AssemblyView(BaseModel):
-    """Unity-authoritative burger-assembly snapshot.
+    """
+    Unity-authoritative burger-assembly snapshot.
 
     Unity owns the plate state machine now; the backend is a pure
     consumer. `plate_location` is the parking-table GameObject name
@@ -95,7 +93,6 @@ class Perception(BaseModel):
     assembly: AssemblyView = Field(default_factory=AssemblyView)
 
 
-# --- DB data or Memory ------------------------------------
 class MemoryDTO(BaseModel):
     id: int
     in_game_day: int
@@ -127,9 +124,7 @@ class SkillDTO(BaseModel):
     embedding: list[float] | None=None
 
 
-# --- Agent Output  ---------------------------------------------------
 # Only AgentAction Output TO UNITY)
-
 class AgentAction(BaseModel):
     """
     OUTPUT: A dynamic 'Function Call' for Unity to execute.

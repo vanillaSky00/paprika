@@ -1,5 +1,4 @@
 import logging
-import os
 from typing import Any
 
 import redis.asyncio as redis
@@ -24,9 +23,6 @@ router = APIRouter()
 redis_client = redis.from_url(settings.REDIS_URL, decode_responses=True)
 
 
-# Maps each domain error to the message we send back to Unity. Keeping this
-# next to the typed errors (rather than string-switching in the handler)
-# means adding a new error = one line here.
 _CLIENT_ERROR_MESSAGES: dict[type[PaprikaError], str] = {
     InvalidPerceptionError: "Invalid perception schema",
     ContextBuildError: "Failed to build perception context",
@@ -70,11 +66,20 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
     """
     await manager.connect(websocket)
 
+    # client_id = actor_id is 1:1 When client_id isn't a numeric actor row id, fall back to a
+    # stable hash so the graph can still run, row is tracked in the ADR-011 follow-up.
+    try:
+        actor_id = int(client_id)
+    except (TypeError, ValueError):
+        actor_id = abs(hash(client_id)) % (2**31)
+
     session_state: dict[str, Any] = {
+        "actor_id": actor_id,
         "task": "Decide Next Task",
         "plan": [],
         "retry_count": 0,
         "skill_guide": "",
+        "recent_history": [],
     }
 
     try:
@@ -119,8 +124,8 @@ async def _process_frame(
     session_state: dict[str, Any],
     client_id: str,
 ) -> dict[str, Any]:
-    """Run one perception → plan cycle.
-
+    """
+    Run one perception = one plan cycle.
     Raises a `PaprikaError` subclass on any recoverable failure so the
     WebSocket loop can translate it into a structured client response
     without having to know which line blew up.
@@ -131,7 +136,7 @@ async def _process_frame(
         raise InvalidPerceptionError(str(e)) from e
 
     logger.info(
-        "👁️ Agent %s | Time %d:00 | Loc: %s",
+        "Agent %s | Time %d:00 | Loc: %s",
         client_id,
         perception.self.time_hour,
         perception.self.current_zone,
@@ -153,11 +158,13 @@ async def _process_frame(
     initial_state = {
         "perception": perception,
         "context": context,
+        "actor_id": session_state["actor_id"],
         "task": session_state["task"],
         "skill_guide": session_state["skill_guide"],
         "plan": session_state["plan"],
         "critique": None,
         "retry_count": session_state["retry_count"],
+        "recent_history": session_state["recent_history"],
     }
 
     try:
@@ -169,6 +176,7 @@ async def _process_frame(
     session_state["plan"] = final_state.get("plan", [])
     session_state["retry_count"] = final_state.get("retry_count", 0)
     session_state["skill_guide"] = final_state.get("skill_guide", "")
+    session_state["recent_history"] = final_state.get("recent_history", [])
 
     return {
         "client_id": client_id,
@@ -178,7 +186,9 @@ async def _process_frame(
 
 
 def _serialize_plan(plan_items: list[Any]) -> list[dict[str, Any]]:
-    """Convert AgentAction objects or dicts into a JSON-serializable list."""
+    """
+    Convert AgentAction objects or dicts into a JSON-serializable list.
+    """
     serialized: list[dict[str, Any]] = []
     if not plan_items:
         return []

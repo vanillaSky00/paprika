@@ -72,10 +72,8 @@ class CriticAgent(BaseAgent):
                 reasoning="Max retries",
                 feedback="System Error",
             )
-
-        # Inject the previous failure into the retry prompt. Without this
-        # the same sys_msg/human_msg produces the same malformed output
-        # and every retry burns identically.
+            
+        # Harness
         effective_human_msg = human_msg
         if last_error:
             effective_human_msg = (

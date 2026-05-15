@@ -25,13 +25,13 @@ class CurriculumAgent(BaseAgent):
         self.qa_llm = qa_llm
         self.memory = memory_store
         self.memory_window_size = memory_window_size
-        self.recent_history = []  # {'task': str, 'result': str}
         self.mode = mode
 
     def render_human_message(
         self,
         context: str,
         long_term_memories: list[MemoryDTO],
+        recent_history: list[dict] | None = None,
     ) -> HumanMessage:
         """
         Curriculum-specific sections:
@@ -39,7 +39,7 @@ class CurriculumAgent(BaseAgent):
           - recent task-level history (Success/Failed outcomes — distinct
             from the execution-trace history inside the perception block)
         """
-        
+
         if long_term_memories:
             long_term_memories_str = "\n".join(
                 f"- {m.content} (Day {m.in_game_day})" for m in long_term_memories
@@ -47,10 +47,10 @@ class CurriculumAgent(BaseAgent):
         else:
             long_term_memories_str = "No relavent memories found."
 
-        if self.recent_history:
+        if recent_history:
             history_str = "\n".join(
                 f"- {item['task']} ({item['result']})"
-                for item in self.recent_history[-5:]
+                for item in recent_history[-5:]
             )
         else:
             history_str = "None"
@@ -70,15 +70,20 @@ class CurriculumAgent(BaseAgent):
     async def propose_next_task(
         self,
         context: str,
+        *,
+        actor_id: int,
+        recent_history: list[dict] | None = None,
     ) -> CurriculumOutput:
 
         # TODO: hard code check some basic status (Hunger, etc.)
 
         relavent_memory = await self.memory.fetch_similar(
-            query=context, limit=self.memory_window_size
+            query=context, limit=self.memory_window_size, actor_id=actor_id,
         )
         sys_msg = self.render_system_message().content
-        human_msg = self.render_human_message(context, relavent_memory).content
+        human_msg = self.render_human_message(
+            context, relavent_memory, recent_history
+        ).content
 
         if self.mode == "auto":
             return await self.__propose_next_ai_task(sys_msg, human_msg)
@@ -86,12 +91,6 @@ class CurriculumAgent(BaseAgent):
             return self.__propose_next_manual_task()
         else:
             raise ValueError(f"Invalid curriculum agent mode: {self.mode}")
-
-    def add_history(self, task: str, result: str):
-        """Records both Success and Failure"""
-        self.recent_history.append({"task": task, "result": result})
-        if len(self.recent_history) > self.memory_window_size:
-            self.recent_history.pop(0)
 
     async def __propose_next_ai_task(
         self,
@@ -102,7 +101,6 @@ class CurriculumAgent(BaseAgent):
         last_raw_response: str = "",
     ):
         if max_retries == 0:
-            # Fallback must be a concrete, verifiable pipeline. A vague
             # "Explore the area" task cascades badly: action emits bare
             # move_to steps, critic accepts them (the world matched the
             # vague intent), and the agent visibly wanders. PLATE_SETUP
@@ -115,9 +113,7 @@ class CurriculumAgent(BaseAgent):
                 difficulty=1,
             )
 
-        # On retry, tell the model exactly what went wrong last time.
-        # Without this, identical input produces identical malformed
-        # output, and all 3 retries burn on the same mistake.
+        # Harness and tell llm what previous wrong is.
         effective_human_msg = human_msg
         if last_error:
             effective_human_msg = (

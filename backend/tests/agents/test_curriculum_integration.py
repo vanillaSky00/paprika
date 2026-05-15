@@ -34,7 +34,7 @@ def test_curriculum_prompt_rendering(dummy_perception, mock_dependencies):
         mode="auto",
     )
 
-    agent.recent_history = [
+    recent_history = [
         {"task": "Open Fridge", "result": "success"},
         {"task": "Grab Tomato", "result": "success"},
     ]
@@ -50,6 +50,7 @@ def test_curriculum_prompt_rendering(dummy_perception, mock_dependencies):
     human_msg = agent.render_human_message(
         context=context,
         long_term_memories=fake_memories,
+        recent_history=recent_history,
     )
 
     print(f"\n[Curriculum Prompt]:\n{human_msg.content}")
@@ -79,7 +80,11 @@ async def test_curriculum_integration_live(dummy_perception, mock_dependencies):
     dummy_perception.self.held_item = None
 
     context = build_perception_context(dummy_perception)
-    result = await agent.propose_next_task(context=context)
+    result = await agent.propose_next_task(
+        context=context,
+        actor_id=1,
+        recent_history=[],
+    )
 
     print(f"\n[Curriculum Output]: {result}")
 

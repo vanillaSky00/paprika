@@ -1,7 +1,5 @@
 import logging
-import operator
-from typing import Annotated, List, TypedDict
-
+from typing import TypedDict
 from langgraph.graph import END, StateGraph
 
 from app.agents.action import ActionAgent
@@ -18,7 +16,6 @@ from app.tools.context import ToolContext
 logger = logging.getLogger(__name__)
 
 openai_llm = get_llm("openai", "gpt-4.1-mini")
-# ollama_llm = get_llm("ollama", "gemma3:4b")
 
 session_factory = get_session_factory()
 memory_store = get_memory_store()
@@ -54,18 +51,36 @@ class AgentState(TypedDict):
     perception: Perception
     context: str
 
+    # Identifies which actor (NPC/human row in `actors`) this invocation
+    # speaks for. Threaded into every memory call so RAG retrieval and
+    # skill lookups stay scoped to the right mind. Required.
+    actor_id: int
+
     task: str
     skill_guide: str
     plan: list[AgentAction]
     critique: CriticOutput | None
 
+    # Rolling task-level outcomes (Success/Failed). Was an attribute on
+    # CurriculumAgent — moved into state so the agent stays a stateless
+    # service that can be shared across actors.
+    recent_history: list[dict]
+
     retry_count: int
+
+
+# Trim length for `recent_history` — keeps the curriculum prompt bounded.
+_HISTORY_WINDOW = 10
 
 
 async def curriculum_node(state: AgentState):
     logger.info("--- 🧠 CURRICULUM: Thinking... ---")
 
-    proposal = await curriculum_agent.propose_next_task(state['context'])
+    proposal = await curriculum_agent.propose_next_task(
+        context=state['context'],
+        actor_id=state['actor_id'],
+        recent_history=state.get('recent_history', []),
+    )
 
     return {
         "task": proposal.task,
@@ -79,7 +94,10 @@ async def curriculum_node(state: AgentState):
 async def skill_node(state: AgentState):
     logger.info(f"--- 📚 SKILL: Researching '{state['task']}'... ---")
 
-    guide = await skill_agent.retrieve_skill(state['task'])
+    guide = await skill_agent.retrieve_skill(
+        task=state['task'],
+        actor_id=state['actor_id'],
+    )
 
     return {
         "skill_guide": guide
@@ -122,13 +140,15 @@ async def critic_node(state: AgentState):
 async def failure_node(state: AgentState):
     logger.warning(f"--- 💀 FAILURE: Giving up on '{state['task']}' ---")
 
-    curriculum_agent.add_history(state['task'], "Failed")
+    history = state.get('recent_history', []) + [
+        {"task": state['task'], "result": "Failed"}
+    ]
 
-    # Reset state for the next fresh attempt
     return {
         "plan": [],
         "retry_count": 0,
-        "critique": None
+        "critique": None,
+        "recent_history": history[-_HISTORY_WINDOW:],
     }
 
 async def learning_node(state: AgentState):
@@ -140,11 +160,16 @@ async def learning_node(state: AgentState):
         task=state['task'],
         action_history=action_history_dicts,
         success=True,
+        actor_id=state['actor_id'],
     )
 
-    curriculum_agent.add_history(state['task'], "Success")
+    history = state.get('recent_history', []) + [
+        {"task": state['task'], "result": "Success"}
+    ]
 
-    return {}
+    return {
+        "recent_history": history[-_HISTORY_WINDOW:],
+    }
 
 def entry_router(state: AgentState):
     """
@@ -175,41 +200,45 @@ def decide_next_node(state: AgentState):
         logger.error("❌ Too many failures. Giving up.")
         return "failure"
 
+def build_graph():
+    workflow = StateGraph(AgentState)
 
-workflow = StateGraph(AgentState)
-
-workflow.add_node("curriculum", curriculum_node)
-workflow.add_node("skill", skill_node)
-workflow.add_node("action", action_node)
-workflow.add_node("critic", critic_node)
-workflow.add_node("learning", learning_node)
+    workflow.add_node("curriculum", curriculum_node)
+    workflow.add_node("skill", skill_node)
+    workflow.add_node("action", action_node)
+    workflow.add_node("critic", critic_node)
+    workflow.add_node("learning", learning_node)
 
 
-workflow.set_conditional_entry_point(
-    entry_router,
-    {
-        "curriculum": "curriculum",
-        "critic": "critic"
-    }
-)
+    workflow.set_conditional_entry_point(
+        entry_router,
+        {
+            "curriculum": "curriculum",
+            "critic": "critic"
+        }
+    )
 
-workflow.add_edge("curriculum", "skill")
-workflow.add_edge("skill", "action")
-workflow.add_node("failure", failure_node)
+    workflow.add_edge("curriculum", "skill")
+    workflow.add_edge("skill", "action")
+    workflow.add_node("failure", failure_node)
 
-# Action goes to END (stops Python), so Unity can run the plan.
-workflow.add_edge("action", END)
+    # Action goes to END (stops Python), so Unity can run the plan.
+    workflow.add_edge("action", END)
 
-workflow.add_conditional_edges(
-    "critic",
-    decide_next_node,
-    {
-        "learning": "learning",
-        "action": "action",
-        "failure": "failure"
-    }
-)
-workflow.add_edge("failure", "curriculum") # <--- Loop back to try a NEW task
-workflow.add_edge("learning", "curriculum")
+    workflow.add_conditional_edges(
+        "critic",
+        decide_next_node,
+        {
+            "learning": "learning",
+            "action": "action",
+            "failure": "failure"
+        }
+    )
+    workflow.add_edge("failure", "curriculum") # <--- Loop back to try a NEW task
+    workflow.add_edge("learning", "curriculum")
 
-graph_app = workflow.compile()
+    return workflow.compile()
+
+
+# Compiled once at import; shared across all actors. See ADR-013.
+graph_app = build_graph()

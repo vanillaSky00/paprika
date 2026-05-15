@@ -33,16 +33,6 @@ services:
       retries: 5
       start_period: 30s
 
-  # alloy:
-  #   image: grafana/alloy:latest
-  #   volumes:
-  #     - ./config.alloy:/etc/alloy/config.alloy
-  #   command: run --server.http.listen-addr=0.0.0.0:12345 --storage.path=/var/lib/alloy/data /etc/alloy/config.alloy
-  #   ports:
-  #     - "12345:12345"
-  #   depends_on:
-  #     - db
-
   agent-runtime:
     build: .
     container_name: paprika_agent-runtime

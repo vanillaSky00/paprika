@@ -34,7 +34,9 @@ class PostgresMemoryStore(BaseMemoryStore):
 
             await db.commit()
 
-    async def fetch_recent(self, *, day: int, limit: int = 20) -> List[MemoryDTO]:
+    async def fetch_recent(
+        self, *, day: int, limit: int = 20, actor_id: int | None = None
+    ) -> List[MemoryDTO]:
         async with self._session_factory() as db:
             stmt = (
                 select(Memory)
@@ -42,12 +44,16 @@ class PostgresMemoryStore(BaseMemoryStore):
                 .order_by(Memory.in_game_day.desc(), Memory.time_slot.desc())
                 .limit(limit)
             )
+            if actor_id is not None:
+                stmt = stmt.where(Memory.actor_id == actor_id)
             result = await db.execute(stmt)
             rows = result.scalars().all()
 
             return [MemoryDTO.model_validate(row) for row in rows]
 
-    async def fetch_similar(self, *, query: str, limit: int = 10) -> List[MemoryDTO]:
+    async def fetch_similar(
+        self, *, query: str, limit: int = 10, actor_id: int | None = None
+    ) -> List[MemoryDTO]:
         async with self._session_factory() as db:
             q_emb = embed_text(query)
             stmt = (
@@ -55,12 +61,16 @@ class PostgresMemoryStore(BaseMemoryStore):
                 .order_by(Memory.embedding.l2_distance(q_emb))
                 .limit(limit)
             )
+            if actor_id is not None:
+                stmt = stmt.where(Memory.actor_id == actor_id)
             result = await db.execute(stmt)
             rows = result.scalars().all()
 
             return [MemoryDTO.model_validate(row) for row in rows]
 
-    async def fetch_similar_skills(self, *, query: str, limit: int = 3) -> List[SkillDTO]:
+    async def fetch_similar_skills(
+        self, *, query: str, limit: int = 3, actor_id: int | None = None
+    ) -> List[SkillDTO]:
         async with self._session_factory() as db:
             q_emb = embed_text(query)
             stmt = (
@@ -68,17 +78,25 @@ class PostgresMemoryStore(BaseMemoryStore):
                 .order_by(Skill.embedding.l2_distance(q_emb))
                 .limit(limit)
             )
+            if actor_id is not None:
+                stmt = stmt.where(Skill.actor_id == actor_id)
             result = await db.execute(stmt)
             rows = result.scalars().all()
 
             return [SkillDTO.model_validate(row) for row in rows]
 
-    async def save_skill(self, skill: SkillDTO) -> None:
+    async def save_skill(
+        self, skill: SkillDTO, *, actor_id: int | None = None
+    ) -> None:
         """
-        Update if exist, otherwise save
+        Update if exist, otherwise save. The (actor_id, task_name) pair
+        is the unique key per ADR-011; when `actor_id` is None the lookup
+        falls back to task_name-only for legacy callers.
         """
         async with self._session_factory() as db:
             stmt = select(Skill).where(Skill.task_name == skill.task_name)
+            if actor_id is not None:
+                stmt = stmt.where(Skill.actor_id == actor_id)
             existing = (await db.execute(stmt)).scalar_one_or_none()
 
             emb = embed_text(f"{skill.task_name}: {skill.description}")

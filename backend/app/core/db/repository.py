@@ -10,8 +10,8 @@ ModelT = TypeVar("ModelT")
 
 
 class Repository(Generic[ModelT]):
-    """Small SQLAlchemy CRUD helper for model-level persistence.
-
+    """
+    Small SQLAlchemy CRUD helper for model-level persistence.
     Domain repositories can compose this for boring create/read/delete work and
     keep their own files focused on domain queries and behavior.
     """
@@ -39,6 +39,7 @@ class Repository(Generic[ModelT]):
         await self.session.flush()
         return instance
 
+    # For not a SQLAlchemy Model Instance
     async def create(self, **values: Any) -> ModelT:
         instance = self.model(**values)
         return await self.add(instance)

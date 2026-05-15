@@ -38,13 +38,15 @@ class SkillAgent(BaseAgent):
         """
         return HumanMessage(content=content)
     
-    async def retrieve_skill(self, task: str):
+    async def retrieve_skill(self, task: str, *, actor_id: int):
         """
         Finds a relevant guide for the current task to inject into the Context.
         """
         try:
             query = f"How to {task}"
-            skills: list[SkillDTO] = await self.memory.fetch_similar_skills(query=query, limit=1)
+            skills: list[SkillDTO] = await self.memory.fetch_similar_skills(
+                query=query, limit=1, actor_id=actor_id,
+            )
             
             #TODO: 
             if not skills:
@@ -66,10 +68,12 @@ class SkillAgent(BaseAgent):
         
     
     async def learn_new_skill(
-        self, 
-        task: str, 
-        action_history: list, 
+        self,
+        task: str,
+        action_history: list,
         success: bool,
+        *,
+        actor_id: int,
         max_retries=3):
         """
         Called after Critic says 'Success'.
@@ -91,8 +95,6 @@ class SkillAgent(BaseAgent):
                 user_message=human_msg
             )
             
-            
-            # print(f"\n\n[Skill LLM response]: Try to learn {sop_resp}\n")
             logger.info(f"\n\n[Skill Agent response]:Try to learn {sop_resp}\n")
             
             data = self._parse_json_helper(sop_resp)
@@ -103,15 +105,16 @@ class SkillAgent(BaseAgent):
                 data = data[0]
                 
             new_skill = SkillDTO(**data)
-            
-            await self.memory.save_skill(new_skill)
+
+            await self.memory.save_skill(new_skill, actor_id=actor_id)
             logger.info(f"🧠 Learned new skill: {task}")
-        
+
         except Exception as e:
             logging.warning(f"Error learning skill: {e}. Retrying ({max_retries} left)...")
             return await self.learn_new_skill(
                 task,
                 action_history,
                 success,
-                max_retries - 1
+                actor_id=actor_id,
+                max_retries=max_retries - 1,
             )
