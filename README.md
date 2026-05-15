@@ -25,27 +25,7 @@ As the industry shifts from chat interfaces to **reliable skill execution**, Pap
 
 ### 1) Configure environment
 
-Create `.env` in the repo root:
-
-```bash
-# LLM (required)
-OPENAI_API_KEY=...
-
-# OLLAMA (optional)
-OLLAMA_BASE_URL=...
-OLLAMA_API_KEY=...
-OLLAMA_MODEL=gemma3:4b
-
-# LangSmith (optional)
-LANGCHAIN_TRACING_V2=true
-LANGCHAIN_ENDPOINT=https://api.smith.langchain.com
-LANGCHAIN_API_KEY=...
-LANGCHAIN_PROJECT=paprika-agent
-
-# OpenWeather (optional tool)
-OPENWEATHER_API_KEY=...
-OPENWEATHER_BASE_URL=https://api.openweathermap.org
-```
+Create `.env` according to `.env_example` in the `/backend` 
 
 ### 2) Start services
 Start backend first
@@ -75,10 +55,11 @@ docker exec -it paprika_db psql -U admin -d paprika_ai
   <img src="assets/png/tech_stack.png" width="650">
 </p>
 
-```text
-  Unity (Body)  <------ WebSocket/HTTP ------>  FastAPI (Brain)
-  - World state/perception                      - LangGraph graph + session + db
-  - Physics + item transforms                   - LLM planner + tool calls 
+```mermaid
+flowchart LR
+    Unity["Unity (Body)<br/>• World state / perception<br/>• Physics + item transforms"]
+    FastAPI["FastAPI (Brain)<br/>• LangGraph + session + db<br/>• LLM planner + tool calls"]
+    Unity <-->|WebSocket / HTTP| FastAPI
 ```
 
 ### LLM Roles
