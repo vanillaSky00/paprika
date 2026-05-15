@@ -147,11 +147,11 @@ exists so Unity can physically execute the plan before the next critic run
 
 ```mermaid
 sequenceDiagram
-    participant U1 as Unity #1
-    participant U2 as Unity #2
+    participant U1 as "Unity #1"
+    participant U2 as "Unity #2"
     participant L as Uvicorn<br/>event loop
-    participant H1 as websocket_endpoint<br/>(coroutine #1)
-    participant H2 as websocket_endpoint<br/>(coroutine #2)
+    participant H1 as "websocket_endpoint<br/>(coroutine #1)"
+    participant H2 as "websocket_endpoint<br/>(coroutine #2)"
 
     U1->>L: WS upgrade /api/ws/agent/u1
     L->>H1: spawn coroutine, await receive_json()
