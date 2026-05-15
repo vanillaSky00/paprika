@@ -140,12 +140,12 @@ sequenceDiagram
     participant SF as "session_factory()<br/>(async ctx mgr)"
     participant AP as asyncpg pool
 
-    Note over H: while True loop;<br/>one iteration per Unity frame
+    Note over H: while True loop,<br/>one iteration per Unity frame
 
     H->>L: await websocket.receive_json()
     Note right of L: yield — loop runs<br/>other coroutines<br/>until bytes arrive
     U-->>L: WS bytes
-    L-->>H: resume; data: dict
+    L-->>H: resume, data: dict
 
     H->>H: Perception(**data) — sync, fast
     H->>H: build_perception_context — sync, fast
@@ -159,7 +159,7 @@ sequenceDiagram
     HX-->>LC: response
     LC-->>G: AIMessage
 
-    G->>SF: async with session_factory() as session:
+    G->>SF: async with session_factory() as session
     SF->>AP: borrow connection from pool
     AP-->>SF: AsyncConnection
     G->>SF: await session.execute(select(...))
