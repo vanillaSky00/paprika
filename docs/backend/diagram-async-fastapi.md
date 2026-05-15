@@ -133,11 +133,11 @@ sequenceDiagram
     autonumber
     participant U as Unity
     participant L as Event loop
-    participant H as websocket_endpoint<br/>(coroutine)
-    participant G as graph_app.ainvoke<br/>(coroutine)
-    participant LC as LangChain<br/>ChatOpenAI.ainvoke
-    participant HX as httpx<br/>(async HTTP)
-    participant SF as session_factory()<br/>(async ctx mgr)
+    participant H as "websocket_endpoint<br/>(coroutine)"
+    participant G as "graph_app.ainvoke<br/>(coroutine)"
+    participant LC as "LangChain<br/>ChatOpenAI.ainvoke"
+    participant HX as "httpx<br/>(async HTTP)"
+    participant SF as "session_factory()<br/>(async ctx mgr)"
     participant AP as asyncpg pool
 
     Note over H: while True loop;<br/>one iteration per Unity frame
